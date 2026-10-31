@@ -21,11 +21,23 @@ X_C, Y_SUELO = 64, 118
 FLASH = (235, 252, 252)
 
 
-def guion(cierre, arco):
+def banda(paso, alto=34):
+    """Estado 'banda': franja de arcoíris que baja del pelo a las botas en 10 pasos (filas de la celda de 110)."""
+    centro = -alto / 2 + paso * (110 + alto) / 9
+    return ("banda", centro - alto / 2, centro + alto / 2)
+
+
+def guion(cierre, arco, efecto=None):
+    """efecto: None (como la opción 1), 'destellos' (parpadeos de arcoíris completos) u 'ondas' (franja de arcoíris que baja)."""
     g = [("1.0", False)] * 5
     g += [("1.1", False)] * 2 + [("1.2", False)] * 2 + [("1.3", arco), ("1.3", False), ("1.4", arco)]
     llamas = [(k, False) for k in hojas.LLAMAS]
-    g += llamas * 2
+    quema = llamas * 2
+    if efecto == "destellos":                     # 2 pasos de arcoíris cada 6: pasos 4-5, 10-11, 16-17, 22-23, 28-29 de las llamas
+        quema = [(k, (i % 6) in (4, 5)) for i, (k, _) in enumerate(quema)]
+    elif efecto == "ondas":                       # tres barridos de 10 pasos
+        quema = [(k, banda(i % 10)) for i, (k, _) in enumerate(quema)]
+    g += quema
     if cierre == "reversa":
         g += [("1.3", False)] * 2 + [("1.2", False)] * 2 + [("1.1", False)] * 2
     else:
@@ -50,13 +62,18 @@ def alfa_flash(cierre, t):
     return tabla.get(t, 0.0)
 
 
-def cuadro(cierre, arco):
-    g = guion(cierre, arco)
+def cuadro(cierre, arco, efecto=None):
+    g = guion(cierre, arco, efecto)
     frames = []
     for t, (k, a) in enumerate(g):
         win = esc.ventana("B", paso_relampago(t))
-        f = (hojas.ARCO if a else hojas.NORMAL)[k]
+        f = (hojas.ARCO if a is True else hojas.NORMAL)[k]
         img = f["img"]
+        if isinstance(a, tuple):                   # franja de arcoíris sobre la versión normal
+            na, aa = np.array(hojas.NORMAL[k]["img"]), np.array(hojas.ARCO[k]["img"])
+            filas = np.arange(na.shape[0])
+            m = ((filas >= a[1]) & (filas <= a[2]))[:, None, None]
+            img = Image.fromarray(np.where(m, aa, na).astype(np.uint8), "RGBA")
         ox, oy = int(round(X_C - f["pies"])), Y_SUELO - hojas.SUELO
         win.alpha_composite(img, (ox, oy)) if ox >= 0 and ox + img.width <= 128 else None
         rgb = np.asarray(win.convert("RGB")).astype(float)
@@ -86,33 +103,40 @@ def gif(frs, ruta):
     return n
 
 
-OPCIONES = [("1_reversa_con_arcoiris", "reversa", True), ("2_reversa_sin_arcoiris", "reversa", False),
-            ("3_corte_tapado_por_relampago", "relampago", True), ("4_corte_directo", "corte", True)]
+OPCIONES = [("1_reversa_con_arcoiris", "reversa", True, None), ("2_reversa_sin_arcoiris", "reversa", False, None),
+            ("3_corte_tapado_por_relampago", "relampago", True, None), ("4_corte_directo", "corte", True, None)]
+EFECTOS = [("5_arcoiris_destellos", "reversa", True, "destellos"), ("6_arcoiris_ondas", "reversa", True, "ondas")]
 
 
-def main():
+def main(solo_efectos=False):
     PREV.mkdir(exist_ok=True)
     todo = {}
-    for nombre, cierre, arco in OPCIONES:
-        fr = cuadro(cierre, arco)
+    for nombre, cierre, arco, efecto in (EFECTOS if solo_efectos else OPCIONES):
+        fr = cuadro(cierre, arco, efecto)
         todo[nombre] = fr
         ruta = PREV / f"lady_{nombre}.gif"
         n = gif(fr, ruta)
         print(f"{ruta.name}: {n} tonos, {ruta.stat().st_size / 1024:.0f} KB")
+    if solo_efectos:
+        S = 214
+        h3 = Image.new("RGB", (6 * S, len(EFECTOS) * (S + 14)), (14, 10, 20))
+        d = ImageDraw.Draw(h3)
+        for r, (nombre, _, _, _) in enumerate(EFECTOS):
+            d.text((4, r * (S + 14) + 1), nombre, fill=(255, 220, 120))
+            for c, t in enumerate((13, 16, 19, 22, 25, 28)):
+                h3.paste(todo[nombre][t].resize((S, S), Image.LANCZOS), (c * S, r * (S + 14) + 14))
+        h3.save(PREV / "lady_arcoiris_pasos.png")
+        return
     # hoja del cierre y la ignición
-    pasos = [8, 9, 10, 11, 12, 44, 46, 47, 0, 2]
     cols = 5
     S = 256
     hoja = Image.new("RGB", (cols * S, 4 * (S + 14)), (14, 10, 20))
     d = ImageDraw.Draw(hoja)
-    for r, (nombre, _, _) in enumerate(OPCIONES):
+    for r, (nombre, _, _, _) in enumerate(OPCIONES):
         d.text((4, r * (S + 14) + 1), nombre, fill=(255, 220, 120))
-    # fila 0..3 con solo los pasos del cierre (5 columnas: 45, 46, 47, 0, 2)
-    for r, (nombre, _, _) in enumerate(OPCIONES):
         for c, t in enumerate((43, 46, 47, 0, 2)):
             hoja.paste(todo[nombre][t].resize((S, S), Image.LANCZOS), (c * S, r * (S + 14) + 14))
     hoja.save(PREV / "lady_cierres.png")
-    # hoja de la ignición (opción 1)
     h2 = Image.new("RGB", (6 * 214, 214 * 2), (14, 10, 20))
     for i, t in enumerate((0, 5, 7, 9, 10, 11, 12, 14, 20, 30, 40, 45)):
         h2.paste(todo[OPCIONES[0][0]][t].resize((214, 214), Image.LANCZOS), ((i % 6) * 214, (i // 6) * 214))
@@ -120,4 +144,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(solo_efectos=len(sys.argv) > 1 and sys.argv[1] == "efectos")
