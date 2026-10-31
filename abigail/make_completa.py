@@ -1,18 +1,22 @@
-"""Animación completa de Abigail: de pie -> explosión -> caída (con la gorra volando) -> tumbada -> reinicio.
+"""Animación completa de Abigail: [camina] -> [gestos] -> explosión -> caída (con la gorra volando) -> tumbada -> reinicio.
 
-Escala: todo a la escala grande de los fotogramas de pie y de la gorra. La caída ('abigail 1/2') y la
-explosión ('bomba abigail 1/2'), dibujadas a la mitad de resolución, se amplían x2 (vecino más cercano).
+Escala: todo a la escala grande de los fotogramas de pie, de caminar y de la gorra. La caída ('abigail 1/2')
+y la explosión ('bomba abigail 1/2'), dibujadas a la mitad de resolución, se amplían x2 (vecino más cercano).
 
-Variantes (python make_completa.py [explosiones|parpadeo]):
-  explosiones  de pie 2 pasadas; el reinicio del bucle lo tapa una segunda explosión.
-  parpadeo     de pie 4 pasadas (mismo orden 1-2-3-4); el reinicio es un parpadeo: Abigail tumbada y la
-               gorra parpadean 4 pasos y desaparecen, y vuelve a aparecer de pie.
+Variantes (python make_completa.py [caminar|parpadeo|explosiones]):
+  caminar      (la última) camina 2 ciclos ('abigail 5'), hace los 4 gestos una vez ('abigail 3'), la golpea la
+               explosión, cae, queda tumbada y parpadea con destellos blancos hasta desaparecer; vuelve a caminar.
+  parpadeo     de pie 4 pasadas de gestos; el reinicio es un parpadeo visible/invisible.
+  explosiones  de pie 2 pasadas de gestos; el reinicio lo tapa una segunda explosión.
 
-Ciclo (pasos de 70 ms; TS1 es el paso del golpe):
-  0..TS1-1      de pie, 4 gestos x 2 pasos x N pasadas (la bomba 1 crece en los últimos pasos)
-  TS1           cambio: bajo la bomba 1 pasa a su primer fotograma de caída y la gorra sale volando
-  TS1..TS1+17   caída (fotogramas 1-13); la gorra describe un arco y aterriza
-  luego         tumbada (la melena alterna dos fotogramas) y el reinicio de la variante
+Pasos de 70 ms. Ciclo de la variante 'caminar' (TS1 es el paso del golpe):
+  0..19       camina (10 fotogramas x 2 ciclos, 1 paso cada uno), en el sitio
+  20..31      gestos 1-4 una sola vez, 3 pasos (210 ms) cada uno
+  32..37      el gesto 4 queda quieto: destello (disco blanco) y la bola de fuego crece y la tapa
+  38 (= TS1)  cambio: pasa a su primer fotograma de caída y la gorra sale volando
+  38..55      caída (fotogramas 1-13); la gorra describe un arco y aterriza
+  56..63      tumbada (la melena alterna dos fotogramas)
+  64..70      parpadeo de destello: normal, blanco, normal, blanco, normal, blanco, vacío; al paso 0 vuelve a caminar
 La bomba son bolas de fuego del sprite que llegan a su celda IDX[k] justo en el cambio
 (crecen 2 celdas por paso y se deshacen 3). Salida: <nombre>.gif y <nombre>_x2.gif, transparentes y en bucle.
 """
@@ -33,17 +37,19 @@ BW, BH = 200, 180           # lienzo
 G = 164                     # fila del suelo (la fila inferior de Abigail tumbada)
 CX = 96                     # columna central de Abigail
 STEP_UP, STEP_DOWN = 2, 3
-STAND_TICKS = 2             # pasos por gesto de pie
 FALL = [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1),
         (8, 2), (9, 2), (10, 2), (11, 2), (12, 2)]
 HOLD = 8                    # pasos tumbada (con la melena alternando) antes del reinicio
 CAP_T, CAP_APEX, CAP_DX = 11, 40, 66      # vuelo de la gorra: pasos, altura del arco y avance
 IDX1, IDX2 = [11], [12, 9]  # celda de cada bola de fuego en el cambio (bomba 1 y bomba 2)
-BLINK = [True, False, True, False]        # parpadeo del reinicio: visible / invisible en cada paso
+BLINK = [True, False, True, False]        # variante 'parpadeo': visible / invisible en cada paso
+FLASH = ["n", "w", "n", "w", "n", "w", "off"]   # variante 'caminar': normal, blanco, ..., último blanco, vacío
+WALK_UP = 50                # filas superiores (gorra, cara, torso) con las que se alinea el caminar
 
 VARIANTS = {
-    "explosiones": dict(passes=2, final="explosion", out="abigail_completa"),
-    "parpadeo": dict(passes=4, final="parpadeo", out="abigail_completa_parpadeo"),
+    "explosiones": dict(passes=2, gest=2, final="explosion", out="abigail_completa"),
+    "parpadeo": dict(passes=4, gest=2, final="parpadeo", out="abigail_completa_parpadeo"),
+    "caminar": dict(walk_cycles=2, gest=3, final="flash", out="abigail_completa_caminar"),
 }
 
 
@@ -61,6 +67,40 @@ def up2(img):
     return img.resize((img.width * 2, img.height * 2), Image.NEAREST)
 
 
+def whiten(img):
+    """Silueta blanca de una imagen RGBA (todos los píxeles opacos pasan al blanco del sprite)."""
+    a = np.asarray(img).copy()
+    a[a[..., 3] > 0] = (248, 248, 248, 255)
+    return Image.fromarray(a, "RGBA")
+
+
+def load_walk():
+    """10 fotogramas de caminar ('abigail 5'), en el sitio: apoyados en el suelo y alineados por la
+    parte superior (gorra, cara y torso) con el primer fotograma para que no se desplace la cabeza."""
+    fr = pj._cut("abigail 5.PNG")
+    assert len(fr) == 10, len(fr)
+    ref = np.asarray(fr[0].getchannel("A"))[:WALK_UP] > 0
+    top_ys, top_xs = np.nonzero(ref[:6])
+    x_ref = CX - int(np.median(top_xs))                        # esquina del fotograma 1
+    out, offsets = [], []
+    for f in fr:
+        a = np.asarray(f.getchannel("A"))[:WALK_UP] > 0
+        best = None
+        for dx in range(-12, 13):
+            m = np.zeros((WALK_UP, 140), bool)
+            r = np.zeros((WALK_UP, 140), bool)
+            r[:, 30:30 + ref.shape[1]] = ref
+            m[:, 30 + dx:30 + dx + a.shape[1]] = a if 30 + dx >= 0 else a
+            score = (m & r).sum() / (m | r).sum() - 0.002 * abs(dx)
+            if best is None or score > best[0]:
+                best = (score, dx)
+        dx = best[1]
+        can = Image.new("RGBA", (BW, BH), (0, 0, 0, 0))
+        can.alpha_composite(f, (x_ref + dx, G + 2 - f.height))
+        out.append(can); offsets.append(dx)
+    return out, offsets
+
+
 def load_all():
     # ---- de pie: se alinean por los pies (centro de las 8 filas inferiores) y descansan sobre el suelo
     stand = []
@@ -71,6 +111,7 @@ def load_all():
         can = Image.new("RGBA", (BW, BH), (0, 0, 0, 0))
         can.alpha_composite(f, (CX - ax, G + 2 - f.height))
         stand.append(can)
+    walk, _ = load_walk()
     # ---- caída: se coloca en el lienzo pequeño (la mitad) y se amplía x2 entero
     small, _ = pj.placed(canvas=(BW // 2, BH // 2), ground=G // 2, cx=CX // 2)
     fall = [up2(c) for c in small]
@@ -78,7 +119,7 @@ def load_all():
     disc, fire = ex.raw_frames()
     _, fpos = ex.aligned(fire)
     rel = [((p[0] - fpos[0][0]) * 2, (p[1] - fpos[0][1]) * 2) for p in fpos]
-    return stand, fall, up2(disc), [up2(f) for f in fire], rel, [c for c in pj.cap()]
+    return stand, walk, fall, up2(disc), [up2(f) for f in fire], rel, [c for c in pj.cap()]
 
 
 class Fuego:
@@ -140,28 +181,37 @@ def optimize(F, idxs, pre_mask, post_mask, rounds=3):
     return pos, int((pre_mask & ~cp).sum()), (int((post_mask & ~cq).sum()) if post_mask is not None else None)
 
 
-def main(variant="parpadeo"):
+def main(variant="caminar"):
     cfg = VARIANTS[variant]
-    final_explosion = cfg["final"] == "explosion"
-    TS1 = 4 * cfg["passes"] * STAND_TICKS
-    stand, fall, disc, fire, rel, capf = load_all()
+    final = cfg["final"]
+    stand, walk, fall, disc, fire, rel, capf = load_all()
     F = Fuego(fire, rel)
-
-    # ---- guion de Abigail
-    sched = [("S", i // STAND_TICKS % 4) for i in range(TS1)]
-    for k, n in FALL:
-        sched += [("F", k)] * n
     G1 = max(IDX1) // STEP_UP
     G2 = max(IDX2) // STEP_UP
-    L = len(sched) + HOLD + ((1 + G2) if final_explosion else len(BLINK))
+
+    # ---- guion de Abigail (antes del golpe)
+    if final == "flash":
+        sched = [("W", i % 10) for i in range(10 * cfg["walk_cycles"])]
+        for i in range(4):
+            sched += [("S", i)] * cfg["gest"]
+        sched += [("S", 3)] * (G1 + 1)                      # el último gesto queda quieto bajo el destello y el fuego
+    else:
+        sched = [("S", i // cfg["gest"] % 4) for i in range(4 * cfg["passes"] * cfg["gest"])]
+    TS1 = len(sched)
+    for k, n in FALL:
+        sched += [("F", k)] * n
+    tail = {"explosion": 1 + G2, "parpadeo": len(BLINK), "flash": len(FLASH)}[final]
+    L = len(sched) + HOLD + tail
     for i in range(HOLD // 2):
         sched += [("F", 11 if i % 2 == 0 else 12)] * 2
     sched += [("F", 12)] * (L - len(sched))
-    print(f"[{variant}] ciclo: {L} pasos = {L * TICK} ms | de pie {TS1} pasos "
-          f"({TS1 * TICK} ms) | bomba 1: crecimiento de {G1} pasos")
+    walk_end = 10 * cfg.get("walk_cycles", 0)
+    print(f"[{variant}] ciclo: {L} pasos = {L * TICK} ms | antes del golpe {TS1} pasos ({TS1 * TICK} ms)"
+          f"{f' | camina {walk_end} pasos' if walk_end else ''} | bomba 1: crecimiento de {G1} pasos")
 
     # ---- gorra: arco desde la cabeza hasta el suelo
-    last_stand = np.asarray(stand[sched[TS1 - 1][1]].getchannel("A")) > 0
+    pre_src = {"S": stand, "W": walk}[sched[TS1 - 1][0]][sched[TS1 - 1][1]]
+    last_stand = np.asarray(pre_src.getchannel("A")) > 0
     ys, xs = np.nonzero(last_stand)
     top = ys.min(); head = xs[ys <= top + 8]
     sx, sy = float(head.mean()), float(top + 8)                     # centro de la gorra sobre la cabeza
@@ -184,19 +234,17 @@ def main(variant="parpadeo"):
         can.alpha_composite(f, (int(round(x - f.width / 2)), int(round(y - f.height / 2))))
         return can
 
-    # ---- bomba 1 (el golpe): cubre a Abigail de pie justo antes del cambio
-    m_stand_pre = np.asarray(stand[sched[TS1 - 1][1]].getchannel("A")) > 0
-    p1, a1, _ = optimize(F, IDX1, m_stand_pre, None)
-    print(f"bomba 1: a la vista antes del cambio {a1} px (de pie) | posiciones {p1}")
-    fl1 = (CX, G - 44)
-    bombs = [(TS1, G1, IDX1, p1, fl1)]
-    if final_explosion:                                               # bomba 2: tapa el reinicio
+    # ---- bomba 1 (el golpe): cubre a Abigail justo antes del cambio
+    p1, a1, _ = optimize(F, IDX1, last_stand, None)
+    print(f"bomba 1: a la vista antes del cambio {a1} px | posiciones {p1}")
+    bombs = [(TS1, G1, IDX1, p1, (CX, G - 44))]
+    if final == "explosion":                                          # bomba 2: tapa el reinicio
         lying = np.asarray(fall[12].getchannel("A")) > 0
         capm = np.asarray(cap_at(L - 1).getchannel("A")) > 0
         m_pre = lying | capm
         m_post = np.asarray(stand[sched[0][1]].getchannel("A")) > 0
         p2, a2, b2 = optimize(F, IDX2, m_pre, m_post)
-        print(f"bomba 2: a la vista antes {a2} px (tumbada+gorra) | después {b2} px (de pie) | posiciones {p2}")
+        print(f"bomba 2: a la vista antes {a2} px | después {b2} px | posiciones {p2}")
         ys, xs = np.nonzero(m_pre)
         fl2 = ((xs.min() + xs.max()) // 2, min((ys.min() + ys.max()) // 2, BH - disc.height // 2))
         bombs.append((0, G2, IDX2, p2, fl2))
@@ -214,13 +262,21 @@ def main(variant="parpadeo"):
                     out.append((fire[idx], F.at(idx, *pos[k]), d <= 0))
         return out
 
+    sources = {"S": stand, "W": walk, "F": fall}
     frames = []
     for c in range(L):
         kind, i = sched[c]
-        ab = (stand if kind == "S" else fall)[i]
+        ab = sources[kind][i]
         can = Image.new("RGBA", (BW, BH), (0, 0, 0, 0))
-        if not final_explosion and c >= L - len(BLINK) and not BLINK[c - (L - len(BLINK))]:
-            frames.append(can); continue                              # parpadeo: este paso no se ve nada
+        cap_img = cap_at(c)
+        if final == "parpadeo" and c >= L - len(BLINK) and not BLINK[c - (L - len(BLINK))]:
+            frames.append(can); continue                              # este paso no se ve nada
+        if final == "flash" and c >= L - len(FLASH):
+            mode = FLASH[c - (L - len(FLASH))]
+            if mode == "off":
+                frames.append(can); continue                          # desaparecen con el último destello
+            if mode == "w":
+                ab = whiten(ab); cap_img = whiten(cap_img)
         layers = fire_layers(c)
         behind = [l for l in layers if not l[2]]
         front = [l for l in layers if l[2]]
@@ -228,9 +284,8 @@ def main(variant="parpadeo"):
             for img, p, _ in behind:
                 can.alpha_composite(img, p)
             can.alpha_composite(ab)
-            cp_ = cap_at(c)
-            if cp_ is not None:
-                can.alpha_composite(cp_)
+            if cap_img is not None:
+                can.alpha_composite(cap_img)
             for img, p, _ in front:
                 can.alpha_composite(img, p)
         else:
@@ -273,4 +328,4 @@ def main(variant="parpadeo"):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "parpadeo")
+    main(sys.argv[1] if len(sys.argv) > 1 else "caminar")
