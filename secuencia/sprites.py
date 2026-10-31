@@ -44,3 +44,22 @@ def place_matilda(frame):
     can = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
     can.alpha_composite(frame, (M_X, M_BASE - frame.height))
     return can
+
+
+# --------------------------------------------------------------------------- volutas de vapor
+PUFF_COLORS = {(184, 192, 200), (248, 248, 248)}   # gris y blanco: solo las usan las volutas
+PUFF_BOX = (50, 0, 110, 56)                         # zona de la fila de arriba donde están
+
+
+def puff_frames(top):
+    """Las volutas de vapor de cada fotograma de la fila de arriba (transparentes)."""
+    out = []
+    for f in top:
+        c = f.crop(PUFF_BOX)
+        px = c.load()
+        for y in range(c.height):
+            for x in range(c.width):
+                if px[x, y][:3] not in PUFF_COLORS:
+                    px[x, y] = (0, 0, 0, 0)
+        out.append(c)
+    return out

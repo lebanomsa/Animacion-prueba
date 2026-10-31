@@ -53,12 +53,25 @@ ESTIRADO = [(0, 2), (1, 2), (2, 2), (3, 1), (4, 5), (5, 12)]
 ALTERNADO = [(0, 2), (1, 2), (2, 2), (3, 1),
              (4, 3), (5, 2), (4, 2), (5, 2), (4, 2), (5, 2), (4, 2), (5, 2)]
 
+# B balanceo: la pausa final sigue un ciclo de respiración con 2 poses sintetizadas:
+#   "Sd" = B6 con el torso 1 px más abajo, "Su" = B5 con el torso 1 px más arriba.
+#   B5, B6, Sd, B6, B5, Su, B5, B6 -> el torso baja y sube suavemente y acaba en B6 original.
+BALANCEO = [(0, 2), (1, 2), (2, 2), (3, 1),
+            (4, 3), (5, 2), ("Sd", 2), (5, 2), (4, 2), ("Su", 2), (4, 2), (5, 2)]
+
 VARIANTS = {
     "original": ORIGINAL,
     "A_repeticion": REPETIDO,
     "B_misma_duracion": ESTIRADO,
     "B_fluido": ALTERNADO,
+    "B_balanceo": BALANCEO,
+    "B_volutas": ALTERNADO,        # igual que B_fluido, más las volutas de vapor de la fila de arriba
 }
+CON_VOLUTAS = {"B_volutas"}
+HOLD_START = TS1 + 7               # paso en que empieza la pausa final (tras B1..B4)
+
+# Cortes del cuerpo en B5/B6 (filas de la celda de 134 px): cabeza y arma arriba, torso y brazos, piernas
+CUT_NECK, CUT_WAIST = 83, 101
 
 
 def make_schedule(swing):
@@ -68,7 +81,9 @@ def make_schedule(swing):
             sched += [("T", i)] * 2
     assert len(sched) == TS1
     for pose, n in swing:
-        sched += [("B", pose)] * n
+        # un entero es una pose original B1..B6; un texto, una pose sintetizada (ver make_synth)
+        key = ("B", pose) if isinstance(pose, int) else ("S", pose)
+        sched += [key] * n
     return sched
 
 
@@ -151,14 +166,61 @@ def matilda_canvas(frame):
     return can
 
 
-def build_frames(top, bot, smoke, bombs, schedule):
+def shift_torso(frame, dy):
+    """Desplaza el torso y los brazos dy px (+ abajo). La cabeza (con el arma y el pelo) y
+    las piernas se quedan fijas, así que la cabeza va un paso por detrás del cuerpo.
+    Se mapea fila de destino -> fila de origen, sin dejar huecos: en las costuras se
+    repite o se descarta una fila."""
+    a = np.asarray(frame)
+    out = a.copy()
+    for y in range(CUT_NECK, CUT_WAIST):
+        out[y] = a[min(max(y - dy, 0), a.shape[0] - 1)]
+    return Image.fromarray(out, "RGBA")
+
+
+def make_synth(bot):
+    return {"Sd": shift_torso(bot[5], +1), "Su": shift_torso(bot[4], -1)}
+
+
+def place_puffs(top, bot, synth, hold_ticks, last_tick):
+    """Coloca las volutas de la fila de arriba encima de la cabeza, sin tocar a Matilda en
+    ninguna de las poses de la pausa. Devuelve {paso: (imagen, (x, y))}."""
+    from sprites import puff_frames
+    pf = puff_frames(top)
+    sil = np.zeros((CANVAS_H, CANVAS_W), bool)
+    for f in (bot[4], bot[5], synth.get("Sd", bot[5]), synth.get("Su", bot[4])):
+        sil |= np.asarray(matilda_canvas(f).getchannel("A")) > 0
+    pad = sil.copy()                                     # margen de 1 px alrededor de Matilda
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+        pad |= np.roll(np.roll(sil, dy, 0), dx, 1)
+    best = None
+    for dy in range(-34, 12):
+        for dx in range(-10, 30):
+            ox, oy = 76 + dx, 41 + dy
+            if ox < 0 or oy < 0 or ox + pf[0].width > CANVAS_W:
+                continue
+            if any((mask_in_canvas(np.asarray(p.getchannel("A")) > 0, ox, oy) & pad).any() for p in pf):
+                continue
+            key = (oy, -abs(dx))                         # lo más cerca posible de la cabeza
+            if best is None or key > best[0]:
+                best = (key, (ox, oy))
+    ox, oy = best[1]
+    print(f"  volutas colocadas en ({ox}, {oy})")
+    return {c: (pf[((c - HOLD_START) // 2) % 4], (ox, oy)) for c in range(HOLD_START, last_tick + 1)}
+
+
+def build_frames(top, bot, smoke, bombs, schedule, synth=None, puffs=None):
     cycle = len(schedule)
     frames, visible = [], []
     for c in range(cycle):
         kind, i = schedule[c]
-        mat = matilda_canvas((top if kind == "T" else bot)[i])
+        base = synth[i] if kind == "S" else (top if kind == "T" else bot)[i]
+        mat = matilda_canvas(base)
         sm = smoke_layer(smoke, bombs, c, cycle)
-        can = mat.copy(); can.alpha_composite(sm)
+        can = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
+        if puffs and c in puffs:
+            can.alpha_composite(puffs[c][0], puffs[c][1])     # las volutas van detrás de Matilda
+        can.alpha_composite(mat); can.alpha_composite(sm)
         frames.append(can)
         m = np.asarray(mat.getchannel("A")) > 0
         visible.append(int((m & ~(np.asarray(sm.getchannel("A")) > 0)).sum()))
@@ -214,7 +276,22 @@ def main(only=None):
         sched = make_schedule(swing)
         cycle = len(sched)
         bombs = load_bombs(smoke, pose_masks, cycle)
-        frames, visible = build_frames(top, bot, smoke, bombs, sched)
+        synth = make_synth(bot)
+        puffs = None
+        if name in CON_VOLUTAS:
+            puffs = place_puffs(top, bot, synth, HOLD_START, cycle - 1)
+            # se cortan justo cuando el humo las tapa del todo, para que no salten a la vista
+            for c in range(cycle - 12, cycle):
+                img, (ox, oy) = puffs[c]
+                smk = np.asarray(smoke_layer(smoke, bombs, c, cycle).getchannel("A")) > 0
+                vis = (mask_in_canvas(np.asarray(img.getchannel("A")) > 0, ox, oy) & ~smk).sum()
+                if vis == 0 and smk.any():
+                    print(f"  volutas tapadas del todo por el humo desde el paso {c}")
+                    puffs = {k: v for k, v in puffs.items() if k <= c}
+                    break
+            else:
+                print("  aviso: las volutas no llegan a taparse del todo antes del cambio")
+        frames, visible = build_frames(top, bot, smoke, bombs, sched, synth, puffs)
         # Matilda a la vista justo antes y justo después de cada cambio de pose
         chk = {f"paso {c}": visible[c] for c in (TS1 - 1, TS1, cycle - 1, 0)}
         frames = crop_all(frames)
