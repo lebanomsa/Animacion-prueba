@@ -83,3 +83,33 @@ def placed(canvas=(140, 120), ground=96, cx=70):
     for f, (x, y) in zip(fr, pos):
         c = Image.new("RGBA", (W, H), (0, 0, 0, 0)); c.alpha_composite(f["img"], (x, y)); out.append(c)
     return out, pos
+
+
+# --------------------------------------------------------------------------- de pie y gorra
+def _cut(name, minw=8):
+    """Recorta los fotogramas de una tira con fondo verde. Ignora restos de menos de minw px."""
+    a = np.asarray(Image.open(ROOT / name).convert("RGB")).astype(int)
+    green = (a[..., 0] == 0) & (a[..., 1] == 255) & (a[..., 2] == 0)
+    fg = ~green
+    rgba = np.dstack([a, np.where(fg, 255, 0)]).astype(np.uint8)
+    out = []
+    for (x0, x1) in _runs(fg.any(axis=0).tolist()):
+        if x1 - x0 + 1 < minw:
+            continue
+        ys = np.nonzero(fg[:, x0:x1 + 1].any(axis=1))[0]
+        out.append(Image.fromarray(rgba[ys.min():ys.max() + 1, x0:x1 + 1], "RGBA"))
+    return out
+
+
+def standing():
+    """4 fotogramas de Abigail de pie ('abigail 3.PNG'), a la escala grande."""
+    f = _cut("abigail 3.PNG")
+    assert len(f) == 4, len(f)
+    return f
+
+
+def cap():
+    """9 fotogramas de la gorra girando ('abigail 4.PNG'), a la escala grande."""
+    f = _cut("abigail 4.PNG")
+    assert len(f) == 9, len(f)
+    return f
