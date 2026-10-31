@@ -25,9 +25,17 @@ OUT = HERE / "salida"
 VARIANT = "B_balanceo_musica"
 SIZE, S_FRAME, S_CONT = 1024, 8, 3
 FEET_Y = 540            # fila (dentro de la ventana) donde apoyan los pies de Matilda: borde de las piedras
-FEET_Y_VICTORIA = 556   # la pose agachada apoya en la franja de piedras (que va de 540 a 585)
-FONDO_CROP = 213        # 213 px x3 = 639 px: cabe en la ventana de 640 px
-FONDO_Y0 = 30           # fila del fondo donde empieza el recorte (el fondo acaba en una franja negra)
+# Configuración de cada composición: escala del personaje y del fondo (sc), lado del recorte del
+# fondo (crop, de modo que crop*sc <= 640), fila del fondo donde empieza (y0) y fila de la ventana
+# donde apoyan los pies (feet).
+CONFIG = {
+    "sway": dict(sc=3, crop=213, y0=30, feet=540, out="matilda_marco_negro_morado.gif"),
+    "victoria": dict(sc=3, crop=213, y0=30, feet=556,
+                     out="matilda_victoria_marco_negro_morado.gif"),
+    # la franja de piedras del fondo queda en la parte baja de la ventana y los pies sobre ella
+    "victoria_x5": dict(sc=5, crop=128, y0=100, feet=622,
+                        out="matilda_victoria_x5_marco_negro_morado.gif"),
+}
 
 
 def quantize_rgb(rgb, k):
@@ -70,21 +78,23 @@ def main(which="sway"):
     win_w, win_h = (wx1 - wx0 + 1) * S_FRAME, (wy1 - wy0 + 1) * S_FRAME
     print(f"ventana: {win_w}x{win_h} px en ({win_x}, {win_y})")
 
-    if which == "victoria":
+    cfg = CONFIG[which]
+    sc, crop, fy0, feet_y, out_name = cfg["sc"], cfg["crop"], cfg["y0"], cfg["feet"], cfg["out"]
+    if which.startswith("victoria"):
         anim, feet_row, cycle, tick_ms = victory_frames()
-        feet_y, out_name, preview_idx = FEET_Y_VICTORIA, "matilda_victoria_marco_negro_morado.gif", 7
+        preview_idx = 7
     else:
         anim, feet_row, cycle = animation_frames()
-        tick_ms, feet_y, out_name, preview_idx = ms.TICK, FEET_Y, "matilda_marco_negro_morado.gif", cycle - 8
+        tick_ms, preview_idx = ms.TICK, cycle - 8
     fw, fh = anim[0].size
     anim_rgb = {tuple(p[:3]) for f in anim for p in f.getdata() if p[3]}
     print(f"animación: {len(anim)} pasos, {fw}x{fh} px, {len(anim_rgb)} colores exactos")
 
     fondo = Image.open(ROOT / "fondo 2.PNG").convert("RGB")
-    fx = (fondo.width - FONDO_CROP) // 2
-    fy = FONDO_Y0
-    fondo_c = np.asarray(fondo.crop((fx, fy, fx + FONDO_CROP, fy + FONDO_CROP)))
-    print(f"fondo 2: recorte de {FONDO_CROP}x{FONDO_CROP} desde ({fx}, {fy}), "
+    fx = (fondo.width - crop) // 2
+    fy = fy0
+    fondo_c = np.asarray(fondo.crop((fx, fy, fx + crop, fy + crop)))
+    print(f"fondo 2: recorte de {crop}x{crop} desde ({fx}, {fy}) a escala x{sc}, "
           f"{len(np.unique(fondo_c.reshape(-1, 3), axis=0))} colores")
     m_arr = np.asarray(frame)
     m_opaque = m_arr[..., 3] > 0
@@ -109,11 +119,12 @@ def main(which="sway"):
     marco_q = Image.fromarray(np.dstack([mq_rgb, m_arr[..., 3]]), "RGBA")
     marco_big = marco_q.resize((marco.N * S_FRAME, marco.N * S_FRAME), Image.NEAREST)
     marco_big.save(OUT / "marco_negro_morado_1024.png")
-    fondo_big = Image.fromarray(fq, "RGB").resize((FONDO_CROP * S_CONT,) * 2, Image.NEAREST)
+    fondo_big = Image.fromarray(fq, "RGB").resize((crop * sc,) * 2, Image.NEAREST)
+    assert crop * sc <= win_w, (crop * sc, win_w)
 
-    ax = win_x + (win_w - fw * S_CONT) // 2
-    ay = win_y + feet_y - feet_row * S_CONT
-    assert win_y <= ay and ay + fh * S_CONT <= win_y + win_h, (ay, fh * S_CONT)
+    ax = win_x + (win_w - fw * sc) // 2
+    ay = win_y + feet_y - feet_row * sc
+    assert win_y <= ay and ay + fh * sc <= win_y + win_h, (ay, fh * sc)
     print(f"animación en ({ax}, {ay}), pies en y={win_y + feet_y}")
 
     base = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
@@ -121,7 +132,7 @@ def main(which="sway"):
     frames = []
     for f in anim:
         img = base.copy()
-        img.alpha_composite(f.resize((fw * S_CONT, fh * S_CONT), Image.NEAREST), (ax, ay))
+        img.alpha_composite(f.resize((fw * sc, fh * sc), Image.NEAREST), (ax, ay))
         img.alpha_composite(marco_big)
         frames.append(img.convert("RGB"))
 
