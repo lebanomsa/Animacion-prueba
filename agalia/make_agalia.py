@@ -28,8 +28,9 @@ TICK = 70
 CW, CH = alinear.CW, alinear.CH
 STEP_UP, STEP_DOWN = 2, 3
 PEAK_FX = 10                    # índice de las chispas que coincide con la revelación
-SPARK_GAP = 3                   # separación entre las chispas y el borde de la silueta
-SPARK_HALF = 29                 # mitad del ancho de las chispas (x2)
+SPARK_GAP = 3                   # separación entre las chispas y el borde de la silueta (negativa = se meten detrás)
+SPARK_SCALE = 2                 # escala de las chispas (1 = tamaño original, 2 = x2)
+SPARK_MODE = "lados"            # "lados": una a cada lado de la silueta; "arriba": una encima de la cabeza
 SPARK_Y = 0.45                  # altura de las chispas dentro de la silueta (0 = arriba, 1 = abajo)
 IDX = [12, 9]                   # celdas de las dos nubes de humo en el cambio (desfasadas para que se hinchen una tras otra)
 HOLD = 8
@@ -67,10 +68,13 @@ def personaje():
 
 
 def chispas():
-    """16 chispas x2, centradas en su silueta. Devuelve [(imagen, (dx, dy) respecto al centro)]."""
+    """16 chispas a la escala SPARK_SCALE, centradas en su silueta. Devuelve [(imagen, (dx, dy) respecto al centro)]."""
     out = []
     for f in hojas.efectos():
-        im = up2(f["img"]); out.append((im, (-im.width // 2, -im.height // 2)))
+        im = f["img"]
+        if SPARK_SCALE != 1:
+            im = im.resize((im.width * SPARK_SCALE, im.height * SPARK_SCALE), Image.NEAREST)
+        out.append((im, (-im.width // 2, -im.height // 2)))
     return out
 
 
@@ -167,15 +171,19 @@ def main(save=True):
     for c in range(L):
         can = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
         fx = c - (swap_fx - PEAK_FX)
-        if 0 <= fx < len(chs):                                           # chispas a ambos lados de la silueta
+        if 0 <= fx < len(chs):                                           # chispas (detrás del personaje)
             bx0, by0, bx1, by1 = ch[sched[c]].getchannel("A").getbbox()
-            cy = int(by0 + SPARK_Y * (by1 - by0))
             im, (dx, dy) = chs[fx]
-            left = Image.new("RGBA", can.size, (0, 0, 0, 0))
-            left.alpha_composite(im, (bx0 - SPARK_GAP - SPARK_HALF + dx, cy + dy))
-            right = Image.new("RGBA", can.size, (0, 0, 0, 0))
-            right.alpha_composite(im.transpose(Image.FLIP_LEFT_RIGHT), (bx1 + SPARK_GAP + SPARK_HALF + dx, cy + dy))
-            can.alpha_composite(left); can.alpha_composite(right)         # detrás del personaje
+            half_x, half_y = 14 * SPARK_SCALE + 1, 13 * SPARK_SCALE + 1
+            if SPARK_MODE == "lados":
+                cy = int(by0 + SPARK_Y * (by1 - by0))
+                left = Image.new("RGBA", can.size, (0, 0, 0, 0))
+                left.alpha_composite(im, (bx0 - SPARK_GAP - half_x + dx, cy + dy))
+                right = Image.new("RGBA", can.size, (0, 0, 0, 0))
+                right.alpha_composite(im.transpose(Image.FLIP_LEFT_RIGHT), (bx1 + SPARK_GAP + half_x + dx, cy + dy))
+                can.alpha_composite(left); can.alpha_composite(right)
+            else:                                                        # "arriba"
+                can.alpha_composite(im, ((bx0 + bx1) // 2 + dx, by0 - SPARK_GAP - half_y + dy))
         can.alpha_composite(ch[sched[c]])
         for im, p in humo_layers(c):                                     # humo por delante de todo
             can.alpha_composite(im, p)

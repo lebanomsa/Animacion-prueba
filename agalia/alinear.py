@@ -5,9 +5,9 @@ from PIL import Image
 
 import hojas
 
-CW, CH = 240, 150        # lienzo (ancho para que quepan las chispas a los lados)
+CW, CH = 240, 175        # lienzo (ancho para que quepan las chispas a los lados)
 CX = 120                 # columna central del primer fotograma
-Y_OFF = 18               # fila del lienzo donde está la fila 28 de la hoja (la más alta del personaje)
+Y_OFF = 50               # fila del lienzo donde está la fila 28 de la hoja (la más alta del personaje)
 
 
 def _mask(img, x, y):
