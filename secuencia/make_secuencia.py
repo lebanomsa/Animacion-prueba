@@ -67,7 +67,13 @@ VARIANTS = {
     "B_balanceo": BALANCEO,
     "B_volutas": ALTERNADO,        # igual que B_fluido, más las volutas de vapor de la fila de arriba
 }
+VARIANTS["B_balanceo_musica"] = BALANCEO      # balanceo + explosión con nota musical
 CON_VOLUTAS = {"B_volutas"}
+CON_MUSICA = {"B_balanceo_musica"}
+# Celda de musica.PNG (0..6) que se muestra en cada paso, a partir de HOLD_START:
+#   pop (celdas 1-5, un paso cada una), oscilación (celdas 6 y 7, 140 ms) y salida inversa
+#   (celdas 4..1) para que el efecto se apague antes de que llegue el humo de la segunda bomba.
+MUSIC_SEQ = [0, 1, 2, 3, 4, 5, 5, 6, 6, 3, 2, 1, 0]
 HOLD_START = TS1 + 7               # paso en que empieza la pausa final (tras B1..B4)
 
 # Cortes del cuerpo en B5/B6 (filas de la celda de 134 px): cabeza y arma arriba, torso y brazos, piernas
@@ -209,6 +215,32 @@ def place_puffs(top, bot, synth, hold_ticks, last_tick):
     return {c: (pf[((c - HOLD_START) // 2) % 4], (ox, oy)) for c in range(HOLD_START, last_tick + 1)}
 
 
+def place_music(music, bot, synth):
+    """Coloca la explosión con nota encima de la cabeza (a la derecha del arma) sin tocar a
+    Matilda en ninguna de las poses de la pausa. Devuelve {paso: (imagen, (x, y))}."""
+    sil = np.zeros((CANVAS_H, CANVAS_W), bool)
+    for f in (bot[4], bot[5], synth["Sd"], synth["Su"]):
+        sil |= np.asarray(matilda_canvas(f).getchannel("A")) > 0
+    pad = sil.copy()
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+        pad |= np.roll(np.roll(sil, dy, 0), dx, 1)
+    best = None
+    # las celdas son todas del mismo tamaño y la explosión crece desde el centro, así que se
+    # usa un único origen; se comprueba el fotograma más grande de la secuencia
+    masks = [np.asarray(m.getchannel("A")) > 0 for m in music]
+    for oy in range(0, 71):                            # solo por encima de la cabeza
+        for ox in range(55, CANVAS_W - 54 + 1):        # a la derecha de la cabeza del arma
+            if any((mask_in_canvas(m, ox, oy) & pad).any() for m in masks):
+                continue
+            head = (M_X + 63, M_BASE - 134 + 72)       # centro aproximado de la cabeza en el lienzo
+            key = -((ox + 27 - head[0]) ** 2 + (oy + 27 - head[1]) ** 2)   # lo más cerca de la cabeza
+            if best is None or key > best[0]:
+                best = (key, (ox, oy))
+    ox, oy = best[1]
+    print(f"  nota musical colocada en ({ox}, {oy}) [celda de 54x54]")
+    return {HOLD_START + t: (music[i], (ox, oy)) for t, i in enumerate(MUSIC_SEQ)}
+
+
 def build_frames(top, bot, smoke, bombs, schedule, synth=None, puffs=None):
     cycle = len(schedule)
     frames, visible = [], []
@@ -291,6 +323,9 @@ def main(only=None):
                     break
             else:
                 print("  aviso: las volutas no llegan a taparse del todo antes del cambio")
+        if name in CON_MUSICA:
+            from sprites import music_frames
+            puffs = place_music(music_frames(), bot, synth)
         frames, visible = build_frames(top, bot, smoke, bombs, sched, synth, puffs)
         # Matilda a la vista justo antes y justo después de cada cambio de pose
         chk = {f"paso {c}": visible[c] for c in (TS1 - 1, TS1, cycle - 1, 0)}

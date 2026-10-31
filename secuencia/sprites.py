@@ -63,3 +63,10 @@ def puff_frames(top):
                     px[x, y] = (0, 0, 0, 0)
         out.append(c)
     return out
+
+
+# --------------------------------------------------------------------------- nota musical (musica.PNG)
+def music_frames():
+    """Los 7 fotogramas de la explosión con nota musical: celdas de 54x54 cada 60 px desde (5, 5)."""
+    sheet = Image.open(ROOT / "musica.PNG")
+    return [_key(sheet.crop((5 + 60 * i, 5, 5 + 60 * i + 54, 5 + 54))) for i in range(7)]
