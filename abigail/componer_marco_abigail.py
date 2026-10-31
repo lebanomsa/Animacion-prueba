@@ -1,13 +1,14 @@
 """Abigail (animación 'caminar') dentro del marco dorado -> rubí plateado, con 'Fondo 3.png'.
 
-Capas (de atrás hacia delante): negro -> Fondo 3 (x5) -> Abigail (x4) -> marco (x8).
+Capas (de atrás hacia delante): negro -> Fondo 3 (x5) -> Abigail (x5) -> marco (x8).
 Marco: el mismo de siempre (limpio y simétrico), recoloreado: dorado arriba, degradado a un rubí con
-reflejos plateados abajo. Abigail va a x4 porque su lienzo (144x146) a x5 no cabe en la ventana de 640 px;
-el fondo va a x5 porque a x4 no cubriría la ventana (148x125 px de origen). Los 15 px que faltan por arriba
-(625 de alto frente a 640) se rellenan reflejando las 3 filas superiores del fondo.
+reflejos plateados abajo. Abigail y el fondo van a la misma escala (x5), así que sus píxeles miden lo mismo.
+A x5 la ventana de 640 px solo admite 128x128 píxeles del dibujo, por eso la animación se compacta un poco
+(opción A): arco de la gorra de 24 px (antes 40), aterrizaje a 54 px (antes 66) y brillos a 3 px del contorno
+(antes 4). El fondo se rellena con 15 px por arriba reflejando sus 3 filas superiores (625 de alto frente a 640).
 Un GIF admite 256 colores: Abigail (40) y el fondo (59) se conservan exactos y el marco se agrupa en el resto.
 
-Salida: abigail_marco_dorado_rubi.gif, marco_dorado_rubi_1024.png y una vista previa.
+Salida: abigail_marco_dorado_rubi_x5.gif, marco_dorado_rubi_1024.png y una vista previa.
 """
 import sys
 from pathlib import Path
@@ -29,8 +30,8 @@ RUBI_PLATA = [(0.0, (20, 0, 6)), (0.3, (88, 6, 26)), (0.6, (172, 24, 52)),
               (0.85, (214, 120, 138)), (1.0, (234, 228, 238))]
 
 SIZE, S_FRAME = 1024, 8
-S_CHAR, S_BG = 4, 5
-FEET_Y = 575                # fila (dentro de la ventana) donde apoya Abigail tumbada: el suelo del fondo
+S_CHAR, S_BG = 5, 5
+CAP_APEX, CAP_DX, SPARK_OFFSET = 24, 54, 3      # animación compactada para que quepa en 128x128 píxeles
 BG_X0, BG_COLS, BG_ROWS = 10, 128, 125
 
 
@@ -49,9 +50,13 @@ def main():
     print(f"ventana: {win_w}x{win_h} px en ({win_x}, {win_y})")
 
     # ---- animación (RGBA recortada) y fila de los pies dentro de ese recorte
+    mc.CAP_APEX, mc.CAP_DX, mc.SPARK_OFFSET = CAP_APEX, CAP_DX, SPARK_OFFSET
     anim, box = mc.main("caminar", save=False)
+    boxes = [b for b in (f.getchannel("A").getbbox() for f in anim) if b]
+    ub = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    anim = [f.crop(ub) for f in anim]                  # recorte exacto al contenido (sin margen)
     fw, fh = anim[0].size
-    feet_row = (mc.G + 2) - box[1]
+    feet_row = (mc.G + 2) - box[1] - ub[1]
     anim_rgb = {tuple(p[:3]) for f in anim for p in f.getdata() if p[3]}
     print(f"animación: {len(anim)} pasos, {fw}x{fh} px, {len(anim_rgb)} colores")
 
@@ -89,9 +94,11 @@ def main():
 
     # ---- composición
     ax = win_x + (win_w - fw * S_CHAR) // 2
-    ay = win_y + FEET_Y - feet_row * S_CHAR
+    ay = win_y + win_h - fh * S_CHAR                  # apoyada en el borde inferior de la ventana
+    assert win_x <= ax and ax + fw * S_CHAR <= win_x + win_w, (ax, fw * S_CHAR)
     assert win_y <= ay and ay + fh * S_CHAR <= win_y + win_h, (ay, fh * S_CHAR)
-    print(f"Abigail en ({ax}, {ay}), tumbada apoyada en y={win_y + FEET_Y}")
+    print(f"Abigail {fw * S_CHAR}x{fh * S_CHAR} px en ({ax}, {ay}); pies en y={ay + feet_row * S_CHAR} "
+          f"(ventana {win_y}..{win_y + win_h})")
     base = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
     base.alpha_composite(Image.fromarray(bg_big, "RGB").convert("RGBA"), (win_x, win_y))
     frames = []
@@ -114,13 +121,13 @@ def main():
         p = Image.fromarray(np.searchsorted(keys, key(a)).astype(np.uint8), "P")
         p.putpalette(pal.tolist())
         out.append(p)
-    path = out_dir / "abigail_marco_dorado_rubi.gif"
+    path = out_dir / "abigail_marco_dorado_rubi_x5.gif"
     out[0].save(path, save_all=True, append_images=out[1:], duration=mc.TICK, loop=0,
                 disposal=1, optimize=False)
     print(f"{path.name}: {len(out)} pasos de {mc.TICK} ms = {len(out) * mc.TICK} ms, {path.stat().st_size / 1024:.0f} KB")
     for i in (12, 30, 44, 66, 70):
         frames[i].save(Path("/projects/sandbox/tmp") / f"abigail_marco_paso{i}.png")
-    frames[30].save(out_dir / "previews" / "vista_previa_abigail_marco_dorado_rubi.png")
+    frames[22].save(out_dir / "previews" / "vista_previa_abigail_marco_dorado_rubi_x5.png")
 
 
 if __name__ == "__main__":
