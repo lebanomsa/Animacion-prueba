@@ -181,10 +181,13 @@ def _anillos(r, cortes, colores):
     return out
 
 
-def fondo_rayos(t):
-    dx, dy = XX + 0.5 - 64, YY + 0.5 - 62
+def fondo_rayos(t, n=128):
+    """Abanico de rayos dorados que gira; `n` = lado en píxeles nativos (128 a x5, 107 a x6: mismos tamaños en pantalla)."""
+    yy, xx = np.mgrid[0:n, 0:n]
+    s = n / 128
+    dx, dy = xx + 0.5 - n / 2, yy + 0.5 - n * 62 / 128
     th = np.arctan2(dy, dx)
-    r = np.hypot(dx, dy)
+    r = np.hypot(dx, dy) / s
     sect = np.floor(((th + 2 * math.pi * t / (12 * 12)) / (2 * math.pi)) * 24).astype(int) % 24
     base = np.where((sect % 2 == 0)[..., None], np.array([255, 226, 112]), np.array([255, 245, 184]))
     f = np.select([r < 26, r < 46, r < 66], [1.0, 0.9, 0.78], 0.64)[..., None]
