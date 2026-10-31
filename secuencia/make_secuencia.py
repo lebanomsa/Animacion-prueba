@@ -117,6 +117,8 @@ def optimize(ts, pre_pose, post_pose, smoke, pose_masks, cycle, rounds=4):
     """Coloca las 6 nubes minimizando los píxeles de Matilda que quedan a la vista."""
     alpha = [np.asarray(s.getchannel("A")) > 0 for s in smoke]
     bbox = [s.getchannel("A").getbbox() for s in smoke]
+    ubb = (min(b[0] for b in bbox), min(b[1] for b in bbox),
+           max(b[2] for b in bbox), max(b[3] for b in bbox))
     m_pre, m_post = pose_masks[pre_pose], pose_masks[post_pose]
     pre_c, post_c = (ts - 1) % cycle, ts % cycle
     cells = [(cell_index(k, pre_c, ts, cycle), cell_index(k, post_c, ts, cycle)) for k in range(6)]
@@ -134,17 +136,18 @@ def optimize(ts, pre_pose, post_pose, smoke, pose_masks, cycle, rounds=4):
                     a, b = covers(j, pos[j]); cp |= a; cq |= b
             u_pre, u_post = m_pre & ~cp, m_post & ~cq
             a_idx, b_idx = cells[k]
-            bb = bbox[a_idx]
             step = 2 if rnd == 0 else 1
-            cand = [(ox, oy) for oy in range(-bb[1] - 6, CANVAS_H - bb[3], step)
-                    for ox in range(-bb[0] - 12, CANVAS_W - bb[2] + 12, step)]
+            # la nube debe caber ENTERA en el lienzo en todos sus fotogramas (si no, el lienzo
+            # la recorta con un borde plano); ubb es la caja que cubre las 26 celdas del humo
+            lo_x, hi_x = -ubb[0], CANVAS_W - ubb[2]
+            lo_y, hi_y = -ubb[1], CANVAS_H - ubb[3]
+            cand = [(ox, oy) for oy in range(lo_y, hi_y + 1, step) for ox in range(lo_x, hi_x + 1, step)]
             if pos[k] is not None and rnd > 0:
                 px, py = pos[k]
-                cand = [(px + dx, py + dy) for dy in range(-3, 4) for dx in range(-3, 4)]
+                cand = [(px + dx, py + dy) for dy in range(-3, 4) for dx in range(-3, 4)
+                        if lo_x <= px + dx <= hi_x and lo_y <= py + dy <= hi_y]
             best = None
             for ox, oy in cand:
-                if oy + bbox[a_idx][3] > CANVAS_H - 1 or oy + bbox[b_idx][3] > CANVAS_H - 1:
-                    continue
                 s = (int((u_pre & ~mask_in_canvas(alpha[a_idx], ox, oy)).sum())
                      + int((u_post & ~mask_in_canvas(alpha[b_idx], ox, oy)).sum()))
                 if best is None or s < best[0]:
