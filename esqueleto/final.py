@@ -23,21 +23,25 @@ N_BG = 107
 TICK = 80
 GUION = [("3.0", 3), ("T", 1), ("1.0", 3), ("1.1", 2), ("1.2", 2), ("2.0", 2), ("2.1", 4), ("T", 1), ("3.0", 2),
          ("3.1", 2), ("3.2", 2), ("3.3", 2), ("3.4", 4), ("3.3", 2), ("3.2", 2), ("3.1", 2)]
+# solo el levantamiento del rifle: reposo, sube, festejo, baja y vuelve al reposo (24 pasos = 2 ciclos de 12)
+GUION_LEVANTA = [("3.0", 4), ("3.1", 2), ("3.2", 2), ("3.3", 2), ("3.4", 8), ("3.3", 2), ("3.2", 2), ("3.1", 2)]
 
 
-def pasos():
+def pasos(guion=None):
     T = giros.agachado()
     out = []
-    for k, n in GUION:
+    for k, n in (guion or GUION):
         out += [T if k == "T" else giros.colocar(giros.F[k])] * n
     return out
 
 
-def main():
-    fr = pasos()
+def main(modo="completa"):
+    guion, esperados, nombre = ((GUION, 36, "esqueleto_marco_oro_plata") if modo == "completa"
+                              else (GUION_LEVANTA, 24, "esqueleto_marco_oro_plata_levanta"))
+    fr = pasos(guion)
     n = len(fr)
     print(f"{n} pasos = {n * TICK} ms")
-    assert n == 36
+    assert n == esperados
     boxes = [f.getchannel("A").getbbox() for f in fr]
     box = (min(b[0] for b in boxes) - 1, min(b[1] for b in boxes) - 1, max(b[2] for b in boxes) + 1, max(b[3] for b in boxes) + 1)
     box = (max(box[0], 0), max(box[1], 0), min(box[2], giros.CW), min(box[3], giros.CH))
@@ -77,16 +81,16 @@ def main():
     pp = []
     for a_ in arrs:
         p = Image.fromarray(np.searchsorted(keys, key(a_)).astype(np.uint8), "P"); p.putpalette(pal.tolist()); pp.append(p)
-    ruta = HERE / "esqueleto_marco_oro_plata.gif"
+    ruta = HERE / f"{nombre}.gif"
     pp[0].save(ruta, save_all=True, append_images=pp[1:], duration=TICK, loop=0, disposal=1, optimize=False)
     print(f"{ruta.name}: {n} pasos, {len(keys)} colores, marco {km} tonos, {ruta.stat().st_size / 1024 / 1024:.1f} MB")
-    sel = [0, 3, 9, 13, 17, 20, 23, 27, 31, 34]
+    sel = [0, 3, 9, 13, 17, 20, 23, 27, 31, 34] if modo == "completa" else [0, 4, 6, 8, 10, 14, 18, 20, 22, 23]
     sh = Image.new("RGB", (5 * 410, 2 * 410), (14, 10, 20))
     for i, t in enumerate(sel):
         sh.paste(out[t].resize((410, 410), Image.LANCZOS), ((i % 5) * 410, (i // 5) * 410))
     PREV.mkdir(exist_ok=True)
-    sh.save(PREV / "esqueleto_marco_oro_plata_pasos.png")
+    sh.save(PREV / f"{nombre}_pasos.png")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "completa")
