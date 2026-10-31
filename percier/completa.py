@@ -18,13 +18,14 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 import hojas
+import layout
 import piezas
 
 HERE = Path(__file__).parent
 W, H = 160, 128
 TICK = 80
-X_F, Y_F = 90, 124                 # centro de las botas y suela de Percier
-AX, AY = 64, 60                    # esquina inferior derecha de la nube (la burbuja pequeña apunta a Percier)
+X_F, Y_F = layout.X_F, 124         # centro de las botas y suela de Percier
+AX, AY = layout.AX, 60                    # esquina inferior derecha de la nube (la burbuja pequeña apunta a Percier)
 CREMA, SOMBRA = piezas.CREMA, (200, 200, 184)
 
 C1, C2, C3 = hojas.celdas(1), hojas.celdas(2), hojas.celdas(3)
@@ -115,7 +116,7 @@ def pistola(cx, cy, k=0, base=False):
 # ---- partes ---------------------------------------------------------------------------------------------------------
 def parte_a():
     f = []
-    for k, n in ((0, 4), (1, 2), (2, 3), (3, 2), (4, 2), (5, 3), (6, 3), (7, 2)):
+    for k, n in layout.DUR_A:
         f += [componer([poner_percier(C1[k])[0]])] * n
     return f
 
