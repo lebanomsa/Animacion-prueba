@@ -183,7 +183,7 @@ def optimize(F, idxs, pre_mask, post_mask, rounds=3):
     return pos, int((pre_mask & ~cp).sum()), (int((post_mask & ~cq).sum()) if post_mask is not None else None)
 
 
-def main(variant="caminar"):
+def main(variant="caminar", save=True):
     cfg = VARIANTS[variant]
     final = cfg["final"]
     stand, walk, fall, disc, fire, rel, capf = load_all()
@@ -309,6 +309,8 @@ def main(variant="caminar"):
            min(max(b[2] for b in boxes) + 2, BW), min(max(b[3] for b in boxes) + 2, BH))
     frames = [f.crop(box) for f in frames]
     print("lienzo recortado:", frames[0].size, "desde", box)
+    if not save:
+        return frames, box                 # para componer la animación dentro del marco (componer_marco_abigail.py)
 
     def save_gif(imgs, path, scale):
         imgs = [i.resize((i.width * scale, i.height * scale), Image.NEAREST) if scale > 1 else i
