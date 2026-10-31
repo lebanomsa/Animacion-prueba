@@ -132,7 +132,7 @@ def optimize(H, idxs, pre_mask, post_mask, rounds=3):
     return pos, int((pre_mask & ~cp).sum()), int((post_mask & ~cq).sum())
 
 
-def main():
+def main(save=True):
     ch = personaje()
     chs = chispas()
     H = Humo(*humo())
@@ -186,6 +186,8 @@ def main():
            min(max(b_[2] for b_ in boxes) + 2, CW), min(max(b_[3] for b_ in boxes) + 2, CH))
     frames = [f.crop(box) for f in frames]
     print("lienzo recortado:", frames[0].size, "desde", box)
+    if not save:
+        return frames, box                 # para componerla dentro del marco (componer_marco_agalia.py)
 
     def save_gif(imgs, path, scale):
         imgs = [i.resize((i.width * scale, i.height * scale), Image.NEAREST) if scale > 1 else i for i in imgs]
