@@ -44,6 +44,7 @@ FALL = [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1),
 HOLD = 8                    # pasos tumbada (con la melena alternando) antes del reinicio
 CAP_T, CAP_APEX, CAP_DX = 11, 40, 66      # vuelo de la gorra: pasos, altura del arco y avance
 IDX1, IDX2 = [11], [12, 9]  # celda de cada bola de fuego en el cambio (bomba 1 y bomba 2)
+SPARK_OFFSET, SPARK_BOUNDS = 4, None      # brillos: separación del contorno y caja que no deben sobrepasar
 BLINK = [True, False, True, False]        # variante 'parpadeo': visible / invisible en cada paso
 FLASH = ["n", "w", "n", "w", "n", "w", "s", "s"]  # variante 'caminar': normal/destello x3, y dos pasos solo con brillos
 WALK_UP = 50                # filas superiores (gorra, cara, torso) con las que se alinea el caminar
@@ -240,7 +241,7 @@ def main(variant="caminar", save=True):
     sparks = []
     if final == "flash":
         scene_mask = (np.asarray(fall[12].getchannel("A")) > 0) | (np.asarray(cap_at(TS1 + CAP_T).getchannel("A")) > 0)
-        sparks = brillos.sparkle_points(scene_mask)
+        sparks = brillos.sparkle_points(scene_mask, offset=SPARK_OFFSET, bounds=SPARK_BOUNDS)
 
     # ---- bomba 1 (el golpe): cubre a Abigail justo antes del cambio
     p1, a1, _ = optimize(F, IDX1, last_stand, None)

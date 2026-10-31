@@ -72,8 +72,9 @@ def draw_star(img, x, y, phase, sp=None):
                     img.putpixel((px, py), col + (255,))
 
 
-def sparkle_points(mask, n=9, seed=7, min_d=18):
-    """Puntos de brillo alrededor de la silueta (sobre su contorno y 4 px hacia fuera).
+def sparkle_points(mask, n=9, seed=7, min_d=18, offset=4, bounds=None):
+    """Puntos de brillo alrededor de la silueta (sobre su contorno y `offset` px hacia fuera).
+    Si se da `bounds` = (x0, y0, x1, y1), la cruz completa (6 px a cada lado) queda dentro de esa caja.
     Devuelve [(x, y, fases, paso_de_inicio)]: 3 grandes y 6 pequeños, desfasados en el tiempo."""
     ys, xs = np.nonzero(mask)
     cx, cy = xs.mean(), ys.mean()
@@ -85,7 +86,9 @@ def sparkle_points(mask, n=9, seed=7, min_d=18):
     for i in idx:
         x, y = int(ex[i]), int(ey[i])
         v = np.array([x - cx, y - cy], float); nrm = np.linalg.norm(v) or 1.0
-        x += int(round(4 * v[0] / nrm)); y += int(round(4 * v[1] / nrm))
+        x += int(round(offset * v[0] / nrm)); y += int(round(offset * v[1] / nrm))
+        if bounds and not (bounds[0] + 6 <= x <= bounds[2] - 6 and bounds[1] + 6 <= y <= bounds[3] - 6):
+            continue
         if all((x - px) ** 2 + (y - py) ** 2 >= min_d ** 2 for px, py, *_ in pts):
             pts.append((x, y))
         if len(pts) == n:
