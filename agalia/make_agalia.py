@@ -6,7 +6,7 @@ Pasos de 70 ms. Ciclo de L pasos (el paso 0 es el cambio de la nube de humo):
   0..3     fotograma 1 (alas plegadas); las nubes de humo se están deshaciendo delante
   4..11    fotogramas 2-5 (flota con las alas abiertas), 2 pasos cada uno; empiezan las chispas
   12..17   fotogramas 6-8 (el ala la envuelve), 2 pasos cada uno; las chispas se juntan en una cruz
-  18..25   fotogramas 9-12 (se revela la forma humana), 2 pasos cada uno; las chispas estallan (pico en el 18)
+  18..25   fotogramas 9-12 (se revela la forma humana), 2 pasos cada uno; las chispas, a los lados, estallan (pico en el 18)
   26..L-1  se queda con las manos juntas (fotogramas 11 y 12 alternando); las nubes de humo crecen y la tapan
 Las chispas llegan a su fotograma de mayor tamaño justo cuando se revela la forma nueva. Salida: GIF transparente.
 """
@@ -28,7 +28,9 @@ TICK = 70
 CW, CH = alinear.CW, alinear.CH
 STEP_UP, STEP_DOWN = 2, 3
 PEAK_FX = 10                    # índice de las chispas que coincide con la revelación
-SPARK_AT = (88, 72)             # centro de las chispas sobre el personaje
+SPARK_GAP = 3                   # separación entre las chispas y el borde de la silueta
+SPARK_HALF = 29                 # mitad del ancho de las chispas (x2)
+SPARK_Y = 0.45                  # altura de las chispas dentro de la silueta (0 = arriba, 1 = abajo)
 IDX = [12, 9]                   # celdas de las dos nubes de humo en el cambio (desfasadas para que se hinchen una tras otra)
 HOLD = 8
 
@@ -164,11 +166,17 @@ def main():
     frames = []
     for c in range(L):
         can = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
-        can.alpha_composite(ch[sched[c]])
         fx = c - (swap_fx - PEAK_FX)
-        if 0 <= fx < len(chs):                                           # chispas, por delante del personaje
+        if 0 <= fx < len(chs):                                           # chispas a ambos lados de la silueta
+            bx0, by0, bx1, by1 = ch[sched[c]].getchannel("A").getbbox()
+            cy = int(by0 + SPARK_Y * (by1 - by0))
             im, (dx, dy) = chs[fx]
-            can.alpha_composite(im, (SPARK_AT[0] + dx, SPARK_AT[1] + dy))
+            left = Image.new("RGBA", can.size, (0, 0, 0, 0))
+            left.alpha_composite(im, (bx0 - SPARK_GAP - SPARK_HALF + dx, cy + dy))
+            right = Image.new("RGBA", can.size, (0, 0, 0, 0))
+            right.alpha_composite(im.transpose(Image.FLIP_LEFT_RIGHT), (bx1 + SPARK_GAP + SPARK_HALF + dx, cy + dy))
+            can.alpha_composite(left); can.alpha_composite(right)         # detrás del personaje
+        can.alpha_composite(ch[sched[c]])
         for im, p in humo_layers(c):                                     # humo por delante de todo
             can.alpha_composite(im, p)
         frames.append(can)
