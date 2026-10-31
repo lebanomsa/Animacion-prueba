@@ -161,6 +161,7 @@ OPCIONES = [
     ("1_violeta_calabazas", "violeta", ["calabazas", "tela_tr", "tela_bl"]),
     ("2_naranja_noche", "naranja", ["murcielagos", "tela_tr", "tela_br", "arana"]),
     ("3_verde_veneno", "verde", ["calabazas_abajo", "tela_tr", "arana"]),
+    ("3b_verde_veneno_4_calabazas", "verde", ["calabazas", "tela_tr", "arana"]),
     ("4_hueso_y_ceniza", "hueso", ["calabazas", "murcielagos", "tela_tr"]),
 ]
 
@@ -173,6 +174,6 @@ if __name__ == "__main__":
         imgs.append(componer(fr, esc, PREV / f"marco_opcion_{nombre}.png"))
         print(nombre, pal, det)
     hoja = Image.new("RGB", (1024, 1024))
-    for i, im in enumerate(imgs):
+    for i, im in enumerate([imgs[0], imgs[1], imgs[2], imgs[4]]):
         hoja.paste(im.resize((512, 512), Image.LANCZOS), ((i % 2) * 512, (i // 2) * 512))
     hoja.save(PREV / "marco_opciones.png")
