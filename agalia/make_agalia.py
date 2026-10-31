@@ -136,7 +136,7 @@ def optimize(H, idxs, pre_mask, post_mask, rounds=3):
     return pos, int((pre_mask & ~cp).sum()), int((post_mask & ~cq).sum())
 
 
-def main(save=True):
+def main(save=True, layers=False):
     ch = personaje()
     chs = chispas()
     H = Humo(*humo())
@@ -167,27 +167,29 @@ def main(save=True):
                 out.append((H.imgs[idx], H.at(idx, *pos[k])))
         return out
 
-    frames = []
+    frames, chars, sparks = [], [], []
     for c in range(L):
-        can = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+        spk = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))                  # capa de las chispas
         fx = c - (swap_fx - PEAK_FX)
-        if 0 <= fx < len(chs):                                           # chispas (detrás del personaje)
+        if 0 <= fx < len(chs):
             bx0, by0, bx1, by1 = ch[sched[c]].getchannel("A").getbbox()
             im, (dx, dy) = chs[fx]
             half_x, half_y = 14 * SPARK_SCALE + 1, 13 * SPARK_SCALE + 1
             if SPARK_MODE == "lados":
                 cy = int(by0 + SPARK_Y * (by1 - by0))
-                left = Image.new("RGBA", can.size, (0, 0, 0, 0))
-                left.alpha_composite(im, (bx0 - SPARK_GAP - half_x + dx, cy + dy))
-                right = Image.new("RGBA", can.size, (0, 0, 0, 0))
-                right.alpha_composite(im.transpose(Image.FLIP_LEFT_RIGHT), (bx1 + SPARK_GAP + half_x + dx, cy + dy))
-                can.alpha_composite(left); can.alpha_composite(right)
+                spk.alpha_composite(im, (bx0 - SPARK_GAP - half_x + dx, cy + dy))
+                spk.alpha_composite(im.transpose(Image.FLIP_LEFT_RIGHT), (bx1 + SPARK_GAP + half_x + dx, cy + dy))
             else:                                                        # "arriba"
-                can.alpha_composite(im, ((bx0 + bx1) // 2 + dx, by0 - SPARK_GAP - half_y + dy))
-        can.alpha_composite(ch[sched[c]])
+                spk.alpha_composite(im, ((bx0 + bx1) // 2 + dx, by0 - SPARK_GAP - half_y + dy))
+        char = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))                 # capa del personaje y el humo
+        char.alpha_composite(ch[sched[c]])
         for im, p in humo_layers(c):                                     # humo por delante de todo
-            can.alpha_composite(im, p)
-        frames.append(can)
+            char.alpha_composite(im, p)
+        can = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+        can.alpha_composite(spk); can.alpha_composite(char)              # las chispas, detrás del personaje
+        frames.append(can); chars.append(char); sparks.append(spk)
+    if layers:
+        return chars, sparks                   # capas sueltas, a tamaño de lienzo (componer_marco_agalia_c.py)
 
     boxes = [b_ for b_ in (f.getchannel("A").getbbox() for f in frames) if b_]
     box = (max(min(b_[0] for b_ in boxes) - 2, 0), max(min(b_[1] for b_ in boxes) - 2, 0),
