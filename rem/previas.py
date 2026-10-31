@@ -108,7 +108,7 @@ def salir(canvas):
 
 
 # ---- opción 1 -------------------------------------------------------------------------------------------------------
-def op1():
+def op1(fondo_fn=None):
     idle = idle_frames()
     print("idle:", [f.size for f in idle])
     S = 4
@@ -118,7 +118,7 @@ def op1():
     chispas = [(rng.uniform(-190, 190), rng.uniform(0, 1), int(rng.integers(1, 3)), rng.integers(3, 7)) for _ in range(22)]
     out = []
     for t in range(N):
-        cv = fondo()
+        cv = fondo_fn(t) if fondo_fn else fondo()
         suelo = 585
         # círculo mágico: late entre 0,92 y 1,06 (ciclo de 12) con brillo variable
         fase = (t % 12) / 12
