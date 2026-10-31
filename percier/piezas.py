@@ -67,3 +67,20 @@ def separar_nube(c):
     # el resto de píxeles de color no crema que rodean al retrato y no son de la nube (p. ej. el tono claro de la esquina)
     nube = a.copy(); nube[(a[..., 3] > 0) & ~nube_px] = 0
     return Image.fromarray(nube, "RGBA"), Image.fromarray(retrato, "RGBA")
+
+
+def separar_pistola(c):
+    """De 1.0 (pistola levantada a la izquierda) devuelve (cuerpo sin pistola, pistola). La mano (tentáculo naranja) se queda."""
+    a = np.array(c)
+    h, w = a.shape[:2]
+    zona = np.zeros((h, w), bool)
+    zona[14:33, :28] = True
+    zona[33:41, :26] = True
+    zona[41:74, :25] = True
+    quitar = zona & (a[..., 3] > 0)
+    for y, x in zip(*np.where(quitar)):
+        if es_naranja(a[y, x]) and y >= 69:
+            quitar[y, x] = False
+    pis = a.copy(); pis[~quitar] = 0
+    cuerpo = a.copy(); cuerpo[quitar] = 0
+    return Image.fromarray(cuerpo, "RGBA"), Image.fromarray(pis, "RGBA")
