@@ -8,7 +8,7 @@ ROOT = Path(__file__).parent.parent
 MAG = (248, 0, 248)
 
 # Lienzo común: las poses de Matilda se alinean por los pies (borde inferior) y por la izquierda
-CANVAS_W, CANVAS_H = 172, 180
+CANVAS_W, CANVAS_H = 172, 194
 M_X, M_BASE = 24, 172          # x de la celda de Matilda y fila de los pies (borde inferior)
 
 
