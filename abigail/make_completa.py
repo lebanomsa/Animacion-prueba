@@ -5,7 +5,7 @@ y la explosión ('bomba abigail 1/2'), dibujadas a la mitad de resolución, se a
 
 Variantes (python make_completa.py [caminar|parpadeo|explosiones]):
   caminar      (la última) camina 2 ciclos ('abigail 5'), hace los 4 gestos una vez ('abigail 3'), la golpea la
-               explosión, cae, queda tumbada y parpadea con destellos blancos hasta desaparecer; vuelve a caminar.
+               explosión, cae, queda tumbada y parpadea con destellos (contorno doble y brillos) hasta deshacerse; vuelve a caminar.
   parpadeo     de pie 4 pasadas de gestos; el reinicio es un parpadeo visible/invisible.
   explosiones  de pie 2 pasadas de gestos; el reinicio lo tapa una segunda explosión.
 
@@ -16,7 +16,8 @@ Pasos de 70 ms. Ciclo de la variante 'caminar' (TS1 es el paso del golpe):
   38 (= TS1)  cambio: pasa a su primer fotograma de caída y la gorra sale volando
   38..55      caída (fotogramas 1-13); la gorra describe un arco y aterriza
   56..63      tumbada (la melena alterna dos fotogramas)
-  64..70      parpadeo de destello: normal, blanco, normal, blanco, normal, blanco, vacío; al paso 0 vuelve a caminar
+  64..71      parpadeo de destello (8 pasos): normal, destello, normal, destello, normal, destello, y dos pasos solo con
+              brillos que se apagan; al paso 0 vuelve a caminar
 La bomba son bolas de fuego del sprite que llegan a su celda IDX[k] justo en el cambio
 (crecen 2 celdas por paso y se deshacen 3). Salida: <nombre>.gif y <nombre>_x2.gif, transparentes y en bucle.
 """
@@ -29,6 +30,7 @@ from PIL import Image
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
+import brillos              # noqa: E402
 import explosion as ex      # noqa: E402
 import personaje as pj      # noqa: E402
 
@@ -43,7 +45,7 @@ HOLD = 8                    # pasos tumbada (con la melena alternando) antes del
 CAP_T, CAP_APEX, CAP_DX = 11, 40, 66      # vuelo de la gorra: pasos, altura del arco y avance
 IDX1, IDX2 = [11], [12, 9]  # celda de cada bola de fuego en el cambio (bomba 1 y bomba 2)
 BLINK = [True, False, True, False]        # variante 'parpadeo': visible / invisible en cada paso
-FLASH = ["n", "w", "n", "w", "n", "w", "off"]   # variante 'caminar': normal, blanco, ..., último blanco, vacío
+FLASH = ["n", "w", "n", "w", "n", "w", "s", "s"]  # variante 'caminar': normal/destello x3, y dos pasos solo con brillos
 WALK_UP = 50                # filas superiores (gorra, cara, torso) con las que se alinea el caminar
 
 VARIANTS = {
@@ -234,6 +236,12 @@ def main(variant="caminar"):
         can.alpha_composite(f, (int(round(x - f.width / 2)), int(round(y - f.height / 2))))
         return can
 
+    # ---- brillos del parpadeo final, repartidos alrededor de Abigail tumbada y la gorra
+    sparks = []
+    if final == "flash":
+        scene_mask = (np.asarray(fall[12].getchannel("A")) > 0) | (np.asarray(cap_at(TS1 + CAP_T).getchannel("A")) > 0)
+        sparks = brillos.sparkle_points(scene_mask)
+
     # ---- bomba 1 (el golpe): cubre a Abigail justo antes del cambio
     p1, a1, _ = optimize(F, IDX1, last_stand, None)
     print(f"bomba 1: a la vista antes del cambio {a1} px | posiciones {p1}")
@@ -272,11 +280,13 @@ def main(variant="caminar"):
         if final == "parpadeo" and c >= L - len(BLINK) and not BLINK[c - (L - len(BLINK))]:
             frames.append(can); continue                              # este paso no se ve nada
         if final == "flash" and c >= L - len(FLASH):
-            mode = FLASH[c - (L - len(FLASH))]
-            if mode == "off":
-                frames.append(can); continue                          # desaparecen con el último destello
-            if mode == "w":
-                ab = whiten(ab); cap_img = whiten(cap_img)
+            t = c - (L - len(FLASH))
+            mode = FLASH[t]
+            if mode in ("n", "w"):                                    # Abigail y la gorra: normales o en destello
+                can.alpha_composite(ab if mode == "n" else brillos.flash(ab, 4))
+                can.alpha_composite(cap_img if mode == "n" else brillos.flash(cap_img, 4))
+            brillos.sparkles_at(can, sparks, t)                       # brillos en cruz; con el último destello se deshace en brillos
+            frames.append(can); continue
         layers = fire_layers(c)
         behind = [l for l in layers if not l[2]]
         front = [l for l in layers if l[2]]
