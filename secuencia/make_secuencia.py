@@ -47,10 +47,17 @@ REPETIDO = (_up(0, 5) + _down + [(0, 2)] + _up(1, 5) + _down + [(0, 2)] + _up(1,
 # B: el mismo recorrido, con el arco rápido igual y las dos últimas poses estiradas a 24 pasos
 ESTIRADO = [(0, 2), (1, 2), (2, 2), (3, 1), (4, 5), (5, 12)]
 
+# B fluido: el mismo recorrido de B, pero en vez de dejar B5 y B6 quietas se alternan
+# (B5 B6 B5 B6...) a 140 ms. B5 y B6 casi no se diferencian (~1 px), así que da un balanceo sutil.
+# Termina en B6, la pose para la que están calculadas las nubes de la segunda bomba.
+ALTERNADO = [(0, 2), (1, 2), (2, 2), (3, 1),
+             (4, 3), (5, 2), (4, 2), (5, 2), (4, 2), (5, 2), (4, 2), (5, 2)]
+
 VARIANTS = {
     "original": ORIGINAL,
     "A_repeticion": REPETIDO,
     "B_misma_duracion": ESTIRADO,
+    "B_fluido": ALTERNADO,
 }
 
 
