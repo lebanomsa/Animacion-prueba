@@ -25,6 +25,7 @@ OUT = HERE / "salida"
 VARIANT = "B_balanceo_musica"
 SIZE, S_FRAME, S_CONT = 1024, 8, 3
 FEET_Y = 540            # fila (dentro de la ventana) donde apoyan los pies de Matilda: borde de las piedras
+FEET_Y_VICTORIA = 556   # la pose agachada apoya en la franja de piedras (que va de 540 a 585)
 FONDO_CROP = 213        # 213 px x3 = 639 px: cabe en la ventana de 640 px
 FONDO_Y0 = 30           # fila del fondo donde empieza el recorte (el fondo acaba en una franja negra)
 
@@ -54,14 +55,27 @@ def animation_frames():
     return [f.crop(box) for f in frames], M_BASE - box[1], cycle
 
 
-def main():
+def victory_frames():
+    """Los 15 fotogramas de 'matilda victoria.PNG' (94x122, pies en el borde inferior)."""
+    sys.path.insert(0, str(ROOT / "victoria"))
+    import make_victoria as mv
+    fr = mv.cells()
+    return fr, fr[0].height, len(fr), mv.TICK
+
+
+def main(which="sway"):
     OUT.mkdir(exist_ok=True)
     frame, (wx0, wy0, wx1, wy1) = marco.build()
     win_x, win_y = wx0 * S_FRAME, wy0 * S_FRAME
     win_w, win_h = (wx1 - wx0 + 1) * S_FRAME, (wy1 - wy0 + 1) * S_FRAME
     print(f"ventana: {win_w}x{win_h} px en ({win_x}, {win_y})")
 
-    anim, feet_row, cycle = animation_frames()
+    if which == "victoria":
+        anim, feet_row, cycle, tick_ms = victory_frames()
+        feet_y, out_name, preview_idx = FEET_Y_VICTORIA, "matilda_victoria_marco_negro_morado.gif", 7
+    else:
+        anim, feet_row, cycle = animation_frames()
+        tick_ms, feet_y, out_name, preview_idx = ms.TICK, FEET_Y, "matilda_marco_negro_morado.gif", cycle - 8
     fw, fh = anim[0].size
     anim_rgb = {tuple(p[:3]) for f in anim for p in f.getdata() if p[3]}
     print(f"animación: {len(anim)} pasos, {fw}x{fh} px, {len(anim_rgb)} colores exactos")
@@ -76,7 +90,7 @@ def main():
     m_opaque = m_arr[..., 3] > 0
 
     # reparto de la paleta de 256 colores: animación exacta, el resto para fondo y marco
-    kf, km = 105, 105
+    kf, km = 105, 130        # el marco se reduce solo lo necesario para que quepa en 256 colores
     while True:
         fq = quantize_rgb(fondo_c.reshape(-1, 3), kf).reshape(fondo_c.shape)
         mq_rgb = m_arr[..., :3].copy()
@@ -98,9 +112,9 @@ def main():
     fondo_big = Image.fromarray(fq, "RGB").resize((FONDO_CROP * S_CONT,) * 2, Image.NEAREST)
 
     ax = win_x + (win_w - fw * S_CONT) // 2
-    ay = win_y + FEET_Y - feet_row * S_CONT
+    ay = win_y + feet_y - feet_row * S_CONT
     assert win_y <= ay and ay + fh * S_CONT <= win_y + win_h, (ay, fh * S_CONT)
-    print(f"animación en ({ax}, {ay}), pies en y={win_y + FEET_Y}")
+    print(f"animación en ({ax}, {ay}), pies en y={win_y + feet_y}")
 
     base = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
     base.alpha_composite(fondo_big.convert("RGBA"), (win_x, win_y))
@@ -125,15 +139,15 @@ def main():
         p = Image.fromarray(np.searchsorted(keys, k).astype(np.uint8), "P")
         p.putpalette(pal.tolist())
         out.append(p)
-    path = OUT / "matilda_marco_negro_morado.gif"
-    out[0].save(path, save_all=True, append_images=out[1:], duration=ms.TICK, loop=0,
+    path = OUT / out_name
+    out[0].save(path, save_all=True, append_images=out[1:], duration=tick_ms, loop=0,
                 disposal=1, optimize=False)
-    print(f"{path.name}: {len(out)} pasos de {ms.TICK} ms = {len(out) * ms.TICK} ms, "
+    print(f"{path.name}: {len(out)} pasos de {tick_ms} ms = {len(out) * tick_ms} ms, "
           f"{path.stat().st_size / 1024:.0f} KB")
-    for tick in (cycle - 8, 0):                                  # vistas previas
-        frames[tick].save(Path("/projects/sandbox/tmp") / f"marco_paso{tick}.png")
-    frames[cycle - 8].save(OUT / "vista_previa_marco_negro_morado.png")
+    frames[preview_idx].save(OUT / ("vista_previa_" + out_name.replace(".gif", ".png")))
+    for i in (0, preview_idx):
+        frames[i].save(Path("/projects/sandbox/tmp") / f"marco_{which}_paso{i}.png")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "sway")
