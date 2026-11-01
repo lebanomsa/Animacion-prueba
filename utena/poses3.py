@@ -126,7 +126,7 @@ MANO_PECHO = ["..OGGGO.", ".OGGGGGN", "OGGOGGON", "NOGNOGH.", ".NHNH..."]       
 MANO_ABAJO = [".OGGO.", "OGGGGO", "OGGGGN", "GGOGGN", "NGHGHN", "NGHGHN", ".NHNH.", "..H.H."]   # dedos hacia abajo
 
 R_BRAZO = (3.0, 2.8)        # radios de la pose 1: brazo de 6 px
-R_ANTEBRAZO = (2.7, 2.2)    # antebrazo de 5 px que se estrecha a 4 en el puño
+R_ANTEBRAZO = (3.1, 2.6)    # antebrazo de 6 px (como la pose 1) que se estrecha a 5 en el puño
 
 
 def manga(rgb, out, hombro, codo, muneca, luz="arriba"):
