@@ -140,9 +140,37 @@ def marco_base(km=None):
 FONDO_PROV = (34, 26, 46)
 
 
-def animacion_utena():
+def reducir_tinte(fr, tenidos, k):
+    """Agrupa en k colores los tonos nuevos que aparecen al teñir de rosa el cuerpo (los del sprite se conservan)."""
+    if k is None:
+        return fr
+    base = set()
+    for i, f in enumerate(fr):
+        if i not in tenidos:
+            a = np.asarray(f); base |= set(map(tuple, a[a[..., 3] > 0][:, :3]))
+    nuevos = []
+    for i in tenidos:
+        a = np.asarray(fr[i]); nuevos += [c for c in map(tuple, a[a[..., 3] > 0][:, :3]) if c not in base]
+    if not nuevos:
+        return fr
+    uniq = np.unique(np.array(nuevos, np.uint8), axis=0)
+    q = quantize_rgb(uniq, min(k, len(uniq)))
+    mapa = {tuple(c): tuple(m) for c, m in zip(uniq, q)}
+    out = list(fr)
+    for i in tenidos:
+        a = np.array(fr[i])
+        for y, x in zip(*np.where(a[..., 3] > 0)):
+            c = tuple(a[y, x, :3])
+            if c in mapa:
+                a[y, x, :3] = mapa[c]
+        out[i] = Image.fromarray(a, "RGBA")
+    return out
+
+
+def animacion_utena(k_tinte=None):
     """La animación final, rotada para que empiece en una pose normal (paso 4: brazos abiertos con el globo vacío)."""
-    fr, durs, _, _ = eb.construir(eb.capa_sonrojo, True)
+    fr, durs, paso, _ = eb.construir(eb.capa_sonrojo, True)
+    fr = reducir_tinte(fr, [i for i, s in paso.items() if s <= 3], k_tinte)
     i0 = 3
     return fr[i0:] + fr[:i0], durs[i0:] + durs[:i0]
 
@@ -176,9 +204,9 @@ def guardar(frames, durs, ruta):
     return len(keys)
 
 
-def main(fondo_fn=None, salida="utena_marco_prueba.gif"):
+def main(fondo_fn=None, salida="utena_marco_prueba.gif", k_tinte=None):
     PREV.mkdir(exist_ok=True)
-    pers, durs = animacion_utena()
+    pers, durs = animacion_utena(k_tinte)
     fondos = [fondo_fn(t) for t in range(len(pers))] if fondo_fn else [None] * len(pers)
     ventanas = [ventana(p, f) for p, f in zip(pers, fondos)]
     km = 70
@@ -193,6 +221,7 @@ def main(fondo_fn=None, salida="utena_marco_prueba.gif"):
         if n <= 256:
             break
         km -= max(4, n - 256)
+        assert km >= 16, "no cabe en 256 colores"
     print(f"{salida}: {len(frames)} pasos, {sum(durs)} ms, {(PREV / salida).stat().st_size / 1024:.0f} KB")
     frames[0].save(PREV / salida.replace(".gif", ".png"))
     frames[6].save(PREV / salida.replace(".gif", "_sobresalto.png"))
