@@ -39,7 +39,8 @@ def bordes_fila(mk, y):
     return (xs.min(), xs.max()) if len(xs) else (None, None)
 
 
-def vestir(src):
+def vestir(src, solo_torso=False):
+    """solo_torso=True: solo saco, camisa, corbata y cuello (sin pantalón, zapatos, mangas, manos ni cabeza)."""
     out = np.zeros((128, 96, 4), np.uint8)
     rgb = out[..., :3]
 
@@ -50,6 +51,8 @@ def vestir(src):
     # ---------------- pantalón (pierna entallada recta) ----------------
     izq = m([(38, 66), (46, 66), (46, 84), (41, 107), (36, 107), (36, 84)])
     der = m([(46, 66), (55, 66), (57, 84), (58, 107), (53, 107), (47, 84)])
+    if solo_torso:
+        izq[:] = False; der[:] = False
     piernas = izq | der
     poner(piernas, P1)
     for y in range(66, 108):                       # sombra en el lado interior de cada pierna
@@ -69,7 +72,7 @@ def vestir(src):
     rgb[borde(der)] = OL
 
     # ---------------- zapatos (silueta de los pies del GIF) ----------------
-    for y in range(108, 119):
+    for y in (range(108, 119) if not solo_torso else ()):
         for x in range(96):
             if src[y, x, 3]:
                 lum = src[y, x, :3].astype(int).sum() / 3
@@ -125,6 +128,8 @@ def vestir(src):
     # ---------------- mangas con axila, codo y puño ----------------
     m_izq = m([(35, 45), (37, 46), (38, 49), (38, 53), (36, 58), (32, 67), (27, 66), (31, 57), (33, 50), (34, 47)])
     m_der = m([(56, 45), (58, 46), (60, 50), (61, 53), (66, 57), (66, 62), (64, 62), (58, 58), (56, 55), (55, 50)])
+    if solo_torso:
+        m_izq[:] = False; m_der[:] = False
     for s in (m_izq, m_der):
         rgb[s] = J1
         out[s, 3] = 255
@@ -143,12 +148,13 @@ def vestir(src):
     rgb[borde(m_izq)] = OL
     rgb[borde(m_der)] = OL
     rgb[borde(cuerpo) & ~m_izq & ~m_der] = OL
-    pr_i = YY * 0.92 - XX * 0.4
-    pu = m_izq & (pr_i >= pr_i[m_izq].max() - 1.7)
-    rgb[pu] = W; rgb[pu & (XX >= np.where(pu.any(0))[0].max() - 1)] = WS
-    pr_d = XX * 0.88 + YY * 0.48
-    pd = m_der & (pr_d >= pr_d[m_der].max() - 1.7)
-    rgb[pd] = W; rgb[pd & (YY >= np.where(pd.any(1))[0].max())] = WS
+    if not solo_torso:
+        pr_i = YY * 0.92 - XX * 0.4
+        pu = m_izq & (pr_i >= pr_i[m_izq].max() - 1.7)
+        rgb[pu] = W; rgb[pu & (XX >= np.where(pu.any(0))[0].max() - 1)] = WS
+        pr_d = XX * 0.88 + YY * 0.48
+        pd = m_der & (pr_d >= pr_d[m_der].max() - 1.7)
+        rgb[pd] = W; rgb[pd & (YY >= np.where(pd.any(1))[0].max())] = WS
 
     # ---------------- cuello, camisa y corbata ----------------
     for y in range(41, 44):                                    # cuello visible (3 filas)
@@ -173,17 +179,17 @@ def vestir(src):
     rgb[62, 46] = J3; rgb[63, 46] = OL                         # botón
 
     # ---------------- manos y cabeza del GIF ----------------
-    for (x0, x1, y0, y1) in ((20, 33, 66, 74), (64, 78, 58, 67)):
+    for (x0, x1, y0, y1) in (((20, 33, 66, 74), (64, 78, 58, 67)) if not solo_torso else ()):
         for y in range(y0, y1):
             for x in range(x0, x1):
                 c = tuple(src[y, x, :3])
                 if src[y, x, 3] and c in t1.PIEL:
                     rgb[y, x] = c; out[y, x, 3] = 255
-    cab = src[:41]
+    cab = src[:41] if not solo_torso else np.zeros((41, 96, 4), np.uint8)
     mk = cab[..., 3] > 0
     out[:41][mk] = cab[mk]
     S1, S2 = (98, 50, 146), (196, 150, 236)
-    for (cx, cy) in ((53, 22), (35, 23)):                     # estrella morada de 4 puntas en cada cuerno
+    for (cx, cy) in (((53, 22), (35, 23)) if not solo_torso else ()):                     # estrella morada de 4 puntas en cada cuerno
         for (dx, dy) in ((0, -1), (0, 1), (-1, 0), (1, 0)):
             rgb[cy + dy, cx + dx] = S1
         rgb[cy, cx] = S2
