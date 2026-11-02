@@ -83,7 +83,7 @@ def ventana_nativa(wn, x0, moon_col, ground_row, sky_img, ground):
     return can.convert("RGB")
 
 
-def main(S=4, ground_row=84, feet_row=130, x0=100, moon_col=125, salida="alma_marco_azul_oro.gif", k_stage=110):
+def main(S=4, ground_row=104, feet_row=130, x0=170, moon_col=115, salida="alma_marco_azul_oro.gif", k_stage=110):
     marco.recolor = recolor_azul_oro
     frame, (wx0, wy0, wx1, wy1) = marco.build(AZUL_CIELO, ORO)
     win_x, win_y = wx0 * S_FRAME, wy0 * S_FRAME
