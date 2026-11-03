@@ -117,21 +117,38 @@ def corazon(p, x0=110, y0=123):
                 p.put(x0 + k, y0 + fila, ROSA_CLARO if (fila == 0 and k == 1) else ROSA)
 
 
-def build(con_detalles=True):
-    """(marco RGBA uint8 de 128x128 con detalles, (x0, y0, x1, y1) de la ventana)."""
+def quantize_rgb(rgb, k):
+    """Agrupa los tonos de una lista de colores (N, 3) en k tonos (mediana de corte, sin dithering)."""
+    img = Image.fromarray(rgb.reshape(-1, 1, 3).astype(np.uint8), "RGB")
+    q = img.quantize(colors=k, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    pal = np.array(q.getpalette()[:768], np.uint8).reshape(-1, 3)
+    return pal[np.asarray(q).reshape(-1)]
+
+
+def detalles(img):
+    """Dibuja los detalles estáticos sobre el marco (modifica `img`, RGBA uint8 de 128x128)."""
+    p = Pincel(img)
+    glifo(p, "arriba", 12, "01101", CIAN_MEDIO)          # tira de datos, arriba a la izquierda
+    circuito(p, "arriba", 115, -1)                       # arriba a la derecha
+    circuito(p, "izq", 12, 1); circuito(p, "izq", 115, -1)
+    circuito(p, "der", 12, 1); circuito(p, "der", 115, -1)
+    glifo(p, "abajo", 8, "A", CIAN)                      # inicial de Alice
+    luces(p)
+    emisor(p)
+    corazon(p)                                           # Heart
+    corchetes(p)
+
+
+def build(con_detalles=True, k=None):
+    """(marco RGBA uint8 de 128x128 con detalles, (x0, y0, x1, y1) de la ventana).
+    Si se da `k`, los tonos del marco se agrupan en k colores ANTES de dibujar los detalles (que conservan su color exacto)."""
     fr, win = marco.build(PLATA, VIOLETA)
     img = np.array(fr)
+    if k:
+        op = img[..., 3] > 0
+        img[..., :3][op] = quantize_rgb(img[..., :3][op], k)
     if con_detalles:
-        p = Pincel(img)
-        glifo(p, "arriba", 12, "01101", CIAN_MEDIO)          # tira de datos, arriba a la izquierda
-        circuito(p, "arriba", 115, -1)                       # arriba a la derecha
-        circuito(p, "izq", 12, 1); circuito(p, "izq", 115, -1)
-        circuito(p, "der", 12, 1); circuito(p, "der", 115, -1)
-        glifo(p, "abajo", 8, "A", CIAN)                      # inicial de Alice
-        luces(p)
-        emisor(p)
-        corazon(p)                                           # Heart
-        corchetes(p)
+        detalles(img)
     return img, win
 
 
