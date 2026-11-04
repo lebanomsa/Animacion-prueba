@@ -32,6 +32,8 @@ TEMAS = {
                    acento=(0, 150, 124), claro=(240, 226, 196), metal=(206, 214, 224)),
     "mar": dict(top=PLATA, bot=VERDE_MAR, canal=(4, 24, 24), patron="olas", c1=(24, 190, 160), c2=(170, 244, 232),
                 acento=(0, 232, 248), claro=(236, 246, 250), metal=(206, 220, 230)),
+    "muelle_mar": dict(top=PLATA, bot=VERDE_MAR, canal=(4, 24, 24), patron="cuerda", c1=(170, 244, 232), c2=(0, 104, 88),
+                       acento=(0, 232, 248), claro=(236, 246, 250), metal=(206, 220, 230), pez=(24, 190, 160), iconos="muelle"),
     "mixto": dict(top=TEAL, bot=ORO, canal=(10, 26, 24), patron="olas", c1=(226, 176, 70), c2=(255, 236, 168),
                   acento=(0, 232, 248), claro=(244, 240, 220), metal=(206, 214, 224)),
 }
@@ -53,10 +55,8 @@ def _icono(nombre, tema, flip=False):
     if flip:
         filas = [f[::-1] for f in filas]
     cm = {"X": tema["acento"], "o": tema["claro"], "d": (16, 20, 22), "R": (216, 72, 40), "W": (248, 248, 248), "M": tema["metal"]}
-    if nombre == "pez":
-        cm["X"] = tema["c1"]
-    if nombre == "concha":
-        cm["X"] = tema["c1"]
+    if nombre in ("pez", "concha"):
+        cm["X"] = tema.get("pez", tema["c1"])
     return filas, cm
 
 
@@ -100,13 +100,16 @@ def detalles(img, tema_nombre):
             for u in range(4):
                 p.put(*_banda(lado, a, u), tema["canal"])
     iconos = {
+        "muelle_mar": None,
         "muelle": dict(arriba=[("boya", 24, False), ("pez", 63, False), ("anzuelo", 102, False)],
                        abajo=[("pez", 24, True), ("ancla", 63, False), ("boya", 102, False)]),
         "mar": dict(arriba=[("burbujas", 24, False), ("concha", 63, False), ("burbujas", 102, False)],
                     abajo=[("pez", 24, False), ("perla", 63, False), ("pez", 102, True)]),
         "mixto": dict(arriba=[("pez", 24, False), ("ancla", 63, False), ("pez", 102, True)],
                       abajo=[("anzuelo", 24, False), ("perla", 63, False), ("anzuelo", 102, False)]),
-    }[tema_nombre]
+    }
+    iconos["muelle_mar"] = iconos["muelle"]
+    iconos = iconos[tema_nombre]
     libres = {lado: [] for lado in LADOS}
     for lado in ("arriba", "abajo"):
         for (nom, xc, fl) in iconos[lado]:
