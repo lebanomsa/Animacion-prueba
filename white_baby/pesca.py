@@ -97,7 +97,8 @@ def cargar():
 
 
 # ====================================================================== fondo
-def fondo():
+def fondo(estilo="actual"):
+    """Fondo estático. estilo: 'actual' (puntos bajo la luna), 'sin' (agua sin reflejo), 'luna' (reflejo de luna), 'faro' (faro en la orilla con su reflejo)."""
     a = np.zeros((N, N, 3), np.uint8)
     cielo = [(8, 12, 34), (12, 20, 46), (16, 30, 58), (22, 42, 72), (30, 58, 90), (42, 78, 108), (60, 100, 124), (84, 124, 142)]
     for y in range(0, 74):
@@ -127,10 +128,56 @@ def fondo():
         a[y] = agua[min((y - 76) * len(agua) // (N - 76), len(agua) - 1)]
         if (y % 4) == 1:
             a[y] = np.clip(a[y].astype(int) + 10, 0, 255)
-    for k, y in enumerate(range(78, 104, 3)):           # reflejo de la luna
-        for x in range(cx - 4 + (k % 2), cx + 5 - (k % 2), 1):
-            if (x + k) % 2 == 0:
-                a[y, x] = (150, 176, 170)
+    if estilo == "actual":
+        for k, y in enumerate(range(78, 104, 3)):           # reflejo de la luna (puntos)
+            for x in range(cx - 4 + (k % 2), cx + 5 - (k % 2), 1):
+                if (x + k) % 2 == 0:
+                    a[y, x] = (150, 176, 170)
+    elif estilo == "luna":
+        # camino de destellos horizontales bajo la luna: más anchos y más separados hacia abajo, siempre cortados
+        rs2 = np.random.RandomState(8)
+        y = 77
+        while y < 112:
+            prof = (y - 77) / 35.0
+            ancho = int(round(3 + 8 * prof)) + rs2.randint(-1, 2)
+            off = rs2.randint(-2, 3)
+            col = tuple(int(c) for c in (np.array((214, 226, 206)) * (1 - 0.55 * prof) + np.array((60, 96, 112)) * 0.55 * prof))
+            x0 = cx - ancho // 2 + off
+            for x in range(x0, x0 + ancho):
+                if 0 <= x < N:
+                    a[y, x] = col
+            if ancho > 6 and rs2.rand() < .6:                 # el destello se parte en dos
+                a[y, x0 + ancho // 2] = a[y - 1, x0 + ancho // 2] if y > 77 else a[y, x0 + ancho // 2]
+            y += 2 + (1 if rs2.rand() < .5 else 0)
+    elif estilo == "faro":
+        # faro en la orilla lejana (x 93..99) con su lámpara y el reflejo de la lámpara en el agua
+        cuerpo, franja, tejado, lampara = (22, 36, 54), (58, 80, 104), (14, 24, 38), (252, 228, 142)
+        base_y, top_y = 74, 52
+        for y in range(top_y, base_y + 1):
+            t = (y - top_y) / (base_y - top_y)
+            w = 2 + int(round(2 * t))                         # de 5 px arriba a 9 px abajo
+            for x in range(96 - w, 96 + w + 1):
+                a[y, x] = franja if ((y - top_y) // 5) % 2 == 1 else cuerpo
+        for x in range(92, 101):                              # galería
+            a[top_y - 1, x] = tejado
+        for x in range(94, 99):                               # lámpara
+            for y in range(top_y - 4, top_y - 1):
+                a[y, x] = lampara
+        for x in range(95, 98):
+            a[top_y - 5, x] = tejado
+        a[top_y - 6, 96] = tejado
+        a[top_y + 4, 95:98] = lampara                         # ventanita
+        # reflejo: la lámpara en trazos verticales rotos y la silueta del faro apagada
+        for k, y in enumerate(range(77, 100)):
+            fuerza = max(0.0, 1.0 - (y - 77) / 24.0)
+            if k % 3 != 2:
+                for x in (95, 96, 97):
+                    c = np.array(lampara) * fuerza + a[y, x] * (1 - fuerza)
+                    a[y, x] = c.astype(np.uint8)
+            if k % 2 == 0:
+                for x in (93, 94, 98, 99):
+                    c = np.array(cuerpo) * 0.9 * fuerza + a[y, x] * (1 - 0.9 * fuerza)
+                    a[y, x] = c.astype(np.uint8)
     # muelle
     top, cara, sombra, junta = (122, 86, 52), (92, 62, 38), (58, 40, 26), (74, 50, 32)
     a[PIES:PIES + 2, 0:60] = top
