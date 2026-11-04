@@ -97,7 +97,7 @@ def cargar():
 
 
 # ====================================================================== fondo
-def fondo(estilo="actual"):
+def fondo(estilo="luna"):
     """Fondo estático. estilo: 'actual' (puntos bajo la luna), 'sin' (agua sin reflejo), 'luna' (reflejo de luna), 'faro' (faro en la orilla con su reflejo)."""
     a = np.zeros((N, N, 3), np.uint8)
     cielo = [(8, 12, 34), (12, 20, 46), (16, 30, 58), (22, 42, 72), (30, 58, 90), (42, 78, 108), (60, 100, 124), (84, 124, 142)]
