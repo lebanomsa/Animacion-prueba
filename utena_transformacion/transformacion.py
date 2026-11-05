@@ -71,12 +71,21 @@ def mezclar(a, b, p):
     return np.where(m, b, a)
 
 
+class Cap:
+    """Un paso de la animación en dos capas: `under` (escenario y círculo del suelo, RGB) y `over` (personaje y efectos, RGBA)."""
+    def __init__(self, under, over):
+        self.under, self.over = under, over
+
+    def compuesto(self):
+        out = self.under.copy()
+        m = self.over[..., 3] > 0
+        out[m] = self.over[m][:, :3]
+        return out
+
+
 def componer(bg, lay, delta=0):
     base = np.clip(bg.astype(int) + delta, 0, 255).astype(np.uint8) if delta else bg.copy()
-    img = np.dstack([base, np.full((NC, NC), 255, np.uint8)])
-    a = lay[..., 3] > 0
-    img[a] = lay[a]
-    return img
+    return Cap(base, lay.copy())
 
 
 def anillo(img, rx, ry, col=WHITE, cx=BODY_C[0], cy=BODY_C[1]):
@@ -115,11 +124,8 @@ def destellos(img, t, n=6, semilla=9):
                 hz.px(img, x + dx, y + dy, GOLD)
 
 
-def main():
-    OUT.mkdir(exist_ok=True)
-    nat, _, _ = hz.recuperar()
-    spr, bg, bg_peq = hz.capas_base(nat)
-    old = cargar_viejo()
+def pasos(spr, bg, bg_peq, old):
+    """Lista de 40 Cap (suelo / personaje y efectos)."""
     B = [0, 0, 1, 1, 1, 1, 0, 0]; A = [0, 1, 1, 1, 0, 0, 0, 0]
 
     def viejo(t, brillo=0):
@@ -128,56 +134,70 @@ def main():
     def nueva():
         return hz.transformar(spr, 0, 0, 0, 0)
     SIL_V = silueta(viejo(0)); SIL_N = silueta(nueva())
-    frames = []
+    res = []
     for t in range(L):
         if t < 6 or t >= 36:                                              # agente respirando
-            img = componer(bg, viejo(t))
+            c = componer(bg, viejo(t))
         elif t < 12:                                                      # carga
             brillo = [0, 1, 2, 1, 2, 2][t - 6]
-            img = componer(bg, viejo(t, brillo))
-            convergen(img, t, 6, 11, GUN_C, 21)
-            destellos(img, t)
+            c = componer(bg, viejo(t, brillo))
+            convergen(c.over, t, 6, 11, GUN_C, 21)
+            destellos(c.over, t)
         elif t == 12:
-            img = componer(bg, mezclar(viejo(t, 2), SIL_V, 0.55), 18)
-            destellos(img, t, 8)
-            anillo(img, 12, 16)
+            c = componer(bg, mezclar(viejo(t, 2), SIL_V, 0.55), 18)
+            destellos(c.over, t, 8)
+            anillo(c.over, 12, 16)
         elif t == 13:
-            img = componer(bg, SIL_V, 38)
-            anillo(img, 19, 24); anillo(img, 12, 16, CREAM)
-            rayos_en(img, GUN_C[0], GUN_C[1], 4, WHITE)
+            c = componer(bg, SIL_V, 38)
+            anillo(c.over, 19, 24); anillo(c.over, 12, 16, CREAM)
+            rayos_en(c.over, GUN_C[0], GUN_C[1], 4, WHITE)
         elif t == 14:
-            img = componer(bg, mezclar(SIL_V, SIL_N, 0.5), 38)
-            anillo(img, 26, 32, CREAM); anillo(img, 19, 24)
-            rayos_en(img, 50, 11, 5, WHITE)
+            c = componer(bg, mezclar(SIL_V, SIL_N, 0.5), 38)
+            anillo(c.over, 26, 32, CREAM); anillo(c.over, 19, 24)
+            rayos_en(c.over, 50, 11, 5, WHITE)
         elif t == 15:
-            img = componer(bg, SIL_N, 30)
-            anillo(img, 30, 36, CREAM)
-            rayos_en(img, 50, 11, 6, GOLD)
+            c = componer(bg, SIL_N, 30)
+            anillo(c.over, 30, 36, CREAM)
+            rayos_en(c.over, 50, 11, 6, GOLD)
         elif t == 16:
-            img = componer(bg, mezclar(SIL_N, nueva(), 0.5), 20)
-            rayos_en(img, 50, 11, 8, GOLD)
+            c = componer(bg, mezclar(SIL_N, nueva(), 0.5), 20)
+            rayos_en(c.over, 50, 11, 8, GOLD)
         elif t == 17:
-            img = componer(bg, nueva(), 10)
-            hz.estrella_rayos(img, 50, 11, 6, True)
+            c = componer(bg, nueva(), 10)
+            hz.estrella_rayos(c.over, 50, 11, 6, True)
         elif t < 30:                                                      # el hechizo (pasos 12-23 del guion de utena_hechizo)
-            img = np.dstack([hz.frame(t - 18 + 12, spr, bg, bg_peq), np.full((NC, NC), 255, np.uint8)])
+            u, o = hz.frame(t - 18 + 12, spr, bg, bg_peq, capas=True)
+            c = Cap(u, o)
         elif t == 30:
-            img = np.dstack([hz.frame(28, spr, bg, bg_peq), np.full((NC, NC), 255, np.uint8)])
+            u, o = hz.frame(28, spr, bg, bg_peq, capas=True)
+            c = Cap(u, o)
         elif t == 31:
-            img = componer(bg, mezclar(hz.transformar(spr, 0, 0, 1, 2), SIL_N, 0.6), 30)
-            anillo(img, 14, 20, CREAM)
+            c = componer(bg, mezclar(hz.transformar(spr, 0, 0, 1, 2), SIL_N, 0.6), 30)
+            anillo(c.over, 14, 20, CREAM)
         elif t == 32:
-            img = componer(bg, SIL_N, 38)
-            anillo(img, 20, 26); anillo(img, 12, 16, CREAM)
+            c = componer(bg, SIL_N, 38)
+            anillo(c.over, 20, 26); anillo(c.over, 12, 16, CREAM)
         elif t == 33:
-            img = componer(bg, mezclar(SIL_N, SIL_V, 0.5), 28)
-            anillo(img, 14, 20, CREAM)
+            c = componer(bg, mezclar(SIL_N, SIL_V, 0.5), 28)
+            anillo(c.over, 14, 20, CREAM)
         elif t == 34:
-            img = componer(bg, SIL_V, 16)
+            c = componer(bg, SIL_V, 16)
         else:                                                             # 35
-            img = componer(bg, mezclar(SIL_V, viejo(35), 0.5), 6)
-        frames.append(Image.fromarray(img[..., :3], "RGB"))
+            c = componer(bg, mezclar(SIL_V, viejo(35), 0.5), 6)
+        res.append(c)
+    return res
 
+
+def cargar_capas():
+    nat, _, _ = hz.recuperar()
+    spr, bg, bg_peq = hz.capas_base(nat)
+    return pasos(spr, bg, bg_peq, cargar_viejo())
+
+
+def main():
+    OUT.mkdir(exist_ok=True)
+    caps = cargar_capas()
+    frames = [Image.fromarray(c.compuesto(), "RGB") for c in caps]
     f126 = [f.resize((126, 126), Image.NEAREST) for f in frames]
     f504 = [f.resize((504, 504), Image.NEAREST) for f in f126]
     n = hz.pe.gif_opaco(f126, OUT / "utena_transformacion_126.gif", TICK)

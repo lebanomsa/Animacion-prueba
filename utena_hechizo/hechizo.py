@@ -146,7 +146,7 @@ def estrella_rayos(img, cx, cy, L, flash):
                 px(img, cx + dx * 4, cy + dy * 4, GOLD)
 
 
-def frame(t, spr, bg, bg_peq):
+def frame(t, spr, bg, bg_peq, capas=False):
     B = [0, 0, 1, 1, 1, 1, 0, 0]; A = [0, 1, 1, 1, 0, 0, 0, 0]; F = [0, 0, 0, 1, 1, 1, 0, 0]
     resp = B[t % 8]; ant = A[t % 8]
     hover = ([0] * 16 + [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1] + [2, 2, 2, 1] + [1, 0, 0, 0, 0, 0, 0, 0])[t]
@@ -177,16 +177,17 @@ def frame(t, spr, bg, bg_peq):
 
     # sprite
     lay = transformar(spr, resp, ant, f, hover)
+    over = np.zeros((NC, NC, 4), np.uint8)               # capa de delante: personaje y efectos (transparente donde no hay nada)
     a = lay[..., 3] > 0
-    img[a] = np.dstack([lay[..., :3], lay[..., 3]])[a]
+    over[a] = np.dstack([lay[..., :3], lay[..., 3]])[a]
 
     cx, cy = STAR_C[0] + OFX, STAR_C[1] - resp - hover + OFY
     # estrella: brillo y rayos
     if flash:
         for (dx, dy) in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (2, 0), (-2, 0), (0, 2), (0, -2)]:
-            px(img, cx + dx, cy + dy, WHITE)
+            px(over, cx + dx, cy + dy, WHITE)
     if Ls:
-        estrella_rayos(img, cx, cy, Ls, flash)
+        estrella_rayos(over, cx, cy, Ls, flash)
 
     # partículas que se juntan en la estrella (8-15)
     if 8 <= t <= 15:
@@ -198,8 +199,8 @@ def frame(t, spr, bg, bg_peq):
             if r < 2:
                 continue
             x, y = cx + r * np.cos(ang), cy + r * np.sin(ang) * 0.8
-            px(img, x, y, GOLD if i % 2 == 0 else WHITE)
-            px(img, cx + (r + 2) * np.cos(ang), cy + (r + 2) * np.sin(ang) * 0.8, LAV)
+            px(over, x, y, GOLD if i % 2 == 0 else WHITE)
+            px(over, cx + (r + 2) * np.cos(ang), cy + (r + 2) * np.sin(ang) * 0.8, LAV)
 
     # partículas que suben del círculo (spawn 16-29, vida 9)
     for s in range(16, 30):
@@ -214,11 +215,11 @@ def frame(t, spr, bg, bg_peq):
             x = ccx + rr * np.cos(ang) + 1.5 * np.sin(age * 0.9 + ph)
             y = ccy + rr * 0.28 * np.sin(ang) - age * 1.4
             if i % 2 == 0 and 2 <= age <= 6:                  # pequeña estrella de 5 px
-                px(img, x, y, GOLD if age < 5 else CREAM)
+                px(over, x, y, GOLD if age < 5 else CREAM)
                 for (ddx, ddy) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    px(img, x + ddx, y + ddy, WHITE if age < 5 else LAV)
+                    px(over, x + ddx, y + ddy, WHITE if age < 5 else LAV)
             else:
-                px(img, x, y, WHITE if age < 3 else GOLD if age < 6 else LAV)
+                px(over, x, y, WHITE if age < 3 else GOLD if age < 6 else LAV)
 
     # estallido de estrellas (29-31)
     if 29 <= t <= 31:
@@ -228,10 +229,15 @@ def frame(t, spr, bg, bg_peq):
             r = (5 + 5 * j) * n
             col = GOLD if j == 1 else (CREAM if j == 2 else LAV)
             for q in (0, 1, 2):
-                px(img, cx + dx * (r + q * n), cy + dy * (r + q * n), col)
+                px(over, cx + dx * (r + q * n), cy + dy * (r + q * n), col)
             if j <= 2:
-                px(img, cx + dx * (r + 3 * n), cy + dy * (r + 3 * n), WHITE)
-    return img[..., :3]
+                px(over, cx + dx * (r + 3 * n), cy + dy * (r + 3 * n), WHITE)
+    if capas:
+        return img[..., :3], over                            # (suelo y círculo, personaje y efectos)
+    out = img.copy()
+    m = over[..., 3] > 0
+    out[m] = over[m]
+    return out[..., :3]
 
 
 def main():
