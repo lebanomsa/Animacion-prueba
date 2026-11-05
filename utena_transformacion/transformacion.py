@@ -83,12 +83,12 @@ class Cap:
         return out
 
 
-SNAP_DESTELLO = [False]          # si es True, las intensidades del destello del fondo se reducen a (0, 18, 38) para ahorrar colores
+SNAP_DESTELLO = [None]           # tupla de intensidades permitidas para el destello del fondo (para ahorrar colores); None = sin cambios
 
 
 def componer(bg, lay, delta=0):
     if delta and SNAP_DESTELLO[0]:
-        delta = min((0, 18, 38), key=lambda d: abs(d - delta))
+        delta = min(SNAP_DESTELLO[0], key=lambda d: abs(d - delta))
     base = np.clip(bg.astype(int) + delta, 0, 255).astype(np.uint8) if delta else bg.copy()
     return Cap(base, lay.copy())
 
@@ -194,17 +194,17 @@ def pasos(spr, bgf, old):
     return res
 
 
-def cargar_capas(bgf=None, snap_destello=False):
+def cargar_capas(bgf=None, snap_destello=None):
     """Los 40 pasos en capas. Con bgf se cambia el fondo (por defecto, el escenario del sprite)."""
     nat, _, _ = hz.recuperar()
     spr, bg, bg_peq = hz.capas_base(nat)
     if bgf is None:
         bgf = lambda t: (bg, bg_peq)
-    SNAP_DESTELLO[0] = snap_destello
+    SNAP_DESTELLO[0] = (0, 18, 38) if snap_destello is True else snap_destello
     try:
         return pasos(spr, bgf, cargar_viejo())
     finally:
-        SNAP_DESTELLO[0] = False
+        SNAP_DESTELLO[0] = None
 
 
 def main():
