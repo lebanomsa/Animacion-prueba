@@ -79,6 +79,33 @@ def kmeans(lab, init, it=20):
     return d.argmin(1), cen
 
 
+REGION_PUNTA = (29, 10, 38, 17)      # (x0, y0, x1, y1) del sprite limpio: la punta del cañón de la pistola
+
+
+def contorno_negro(img, region=REGION_PUNTA):
+    """En la punta de la pistola, el contorno negro en diagonal perdió un píxel: quedó en un gris oscuro neutro (el negro mezclado con el
+    gris del fondo de la imagen). Los píxeles del borde con ese gris, dentro de `region`, se llevan al negro del contorno.
+    Los grises claros (brillos del arma) y los tonos con color no se tocan."""
+    a = np.array(img)
+    op = a[..., 3] > 0
+    H, W = op.shape
+    negro = a[op][np.argmin(a[op][:, :3].sum(-1))][:3].copy()
+    cambios = []
+    for y in range(H):
+        for x in range(W):
+            if not op[y, x]:
+                continue
+            borde = any(not (0 <= y + dy < H and 0 <= x + dx < W and op[y + dy, x + dx]) for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            c = a[y, x, :3].astype(int)
+            lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+            en_region = region[0] <= x < region[2] and region[1] <= y < region[3]
+            if en_region and borde and lum < 36 and c.max() - c.min() <= 6 and tuple(c) != tuple(negro):
+                a[y, x, :3] = negro
+                cambios.append((x, y, tuple(int(v) for v in c)))
+    print("píxeles de contorno llevados al negro:", cambios)
+    return Image.fromarray(a, "RGBA")
+
+
 def main():
     p, nat = recuperar()
     # fondo = píxeles casi iguales al gris del fondo CONECTADOS con el borde de la imagen. Los grises oscuros del traje, aunque se parezcan
@@ -128,6 +155,7 @@ def main():
     ys, xs = np.nonzero(fg)
     box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
     img = Image.fromarray(out, "RGBA").crop(box)
+    img = contorno_negro(img)
     img.save(HERE / "sprite_agente_limpio.png")
     cols = len({tuple(p_[:3]) for p_ in img.getdata() if p_[3]})
     print(f"período {p:.2f}; cuadrícula {nat.shape[1]}x{nat.shape[0]}; personaje {img.size[0]}x{img.size[1]}; {cols} colores")
