@@ -79,6 +79,19 @@ def kmeans(lab, init, it=20):
     return d.argmin(1), cen
 
 
+PIXELES_NEGROS_EXTRA = [(36, 12), (37, 12)]      # (x, y) del sprite limpio: cierran el contorno del extremo del cañón de la pistola
+
+
+def cerrar_punta(img, pixeles=PIXELES_NEGROS_EXTRA):
+    """El extremo del cañón (una barra diagonal de 2 píxeles de ancho) tenía el contorno abierto: sobre el píxel gris oscuro (36,13) no había
+    nada. Se añaden en negro (36,12), justo encima, y la esquina (37,12) para que el borde no quede cortado."""
+    a = np.array(img)
+    for x, y in pixeles:
+        a[y, x] = (1, 2, 1, 255)
+    print("píxeles de contorno añadidos en la punta de la pistola:", pixeles)
+    return Image.fromarray(a, "RGBA")
+
+
 def contorno_negro(img, region=None):
     """El contorno del sprite es negro, pero algunos píxeles del borde quedaron en un gris oscuro neutro (el negro mezclado con el gris del
     fondo de la imagen, p. ej. en la punta del cañón de la pistola). Los píxeles del borde con ese gris (luminancia < 36 y sin color) se llevan
@@ -154,6 +167,7 @@ def main():
     box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
     img = Image.fromarray(out, "RGBA").crop(box)
     img = contorno_negro(img)
+    img = cerrar_punta(img)
     img.save(HERE / "sprite_agente_limpio.png")
     cols = len({tuple(p_[:3]) for p_ in img.getdata() if p_[3]})
     print(f"período {p:.2f}; cuadrícula {nat.shape[1]}x{nat.shape[0]}; personaje {img.size[0]}x{img.size[1]}; {cols} colores")
