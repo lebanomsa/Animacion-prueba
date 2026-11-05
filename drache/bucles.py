@@ -226,6 +226,24 @@ def gif_global(frames, ruta, dur):
     ps[0].save(ruta, save_all=True, append_images=ps[1:], duration=dur, loop=0, disposal=1, optimize=False)
 
 
+def gif_local(frames, ruta, dur):
+    """GIF con una paleta propia por fotograma (cada uno puede tener hasta 256 colores): los colores no se agrupan si el fotograma cabe en 256."""
+    k = lambda a: a[..., 0].astype(np.uint32) << 16 | a[..., 1].astype(np.uint32) << 8 | a[..., 2]
+    ps, agrupados = [], 0
+    for fr in frames:
+        a = np.asarray(fr.convert("RGB"))
+        keys = np.unique(k(a))
+        if len(keys) <= 256:
+            pal = np.zeros(768, np.uint8)
+            pal[0:len(keys) * 3:3], pal[1:len(keys) * 3:3], pal[2:len(keys) * 3:3] = keys >> 16, keys >> 8 & 255, keys & 255
+            p = Image.fromarray(np.searchsorted(keys, k(a)).astype(np.uint8), "P"); p.putpalette(pal.tolist())
+        else:
+            p = fr.convert("RGB").quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE); agrupados += 1
+        ps.append(p)
+    ps[0].save(ruta, save_all=True, append_images=ps[1:], duration=dur, loop=0, disposal=1, optimize=False)
+    return agrupados
+
+
 def gif_transparente(capas, ruta, dur):
     arrs = [np.asarray(c) for c in capas]
     k = lambda a: a[..., 0].astype(np.uint32) << 16 | a[..., 1].astype(np.uint32) << 8 | a[..., 2]
