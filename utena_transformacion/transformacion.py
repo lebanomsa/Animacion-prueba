@@ -83,7 +83,12 @@ class Cap:
         return out
 
 
+SNAP_DESTELLO = [False]          # si es True, las intensidades del destello del fondo se reducen a (0, 18, 38) para ahorrar colores
+
+
 def componer(bg, lay, delta=0):
+    if delta and SNAP_DESTELLO[0]:
+        delta = min((0, 18, 38), key=lambda d: abs(d - delta))
     base = np.clip(bg.astype(int) + delta, 0, 255).astype(np.uint8) if delta else bg.copy()
     return Cap(base, lay.copy())
 
@@ -124,8 +129,8 @@ def destellos(img, t, n=6, semilla=9):
                 hz.px(img, x + dx, y + dy, GOLD)
 
 
-def pasos(spr, bg, bg_peq, old):
-    """Lista de 40 Cap (suelo / personaje y efectos)."""
+def pasos(spr, bgf, old):
+    """Lista de 40 Cap (suelo / personaje y efectos). bgf(t) devuelve (fondo, fondo con sombra pequeña) del paso t."""
     B = [0, 0, 1, 1, 1, 1, 0, 0]; A = [0, 1, 1, 1, 0, 0, 0, 0]
 
     def viejo(t, brillo=0):
@@ -136,6 +141,7 @@ def pasos(spr, bg, bg_peq, old):
     SIL_V = silueta(viejo(0)); SIL_N = silueta(nueva())
     res = []
     for t in range(L):
+        bg, bg_peq = bgf(t)
         if t < 6 or t >= 36:                                              # agente respirando
             c = componer(bg, viejo(t))
         elif t < 12:                                                      # carga
@@ -188,10 +194,17 @@ def pasos(spr, bg, bg_peq, old):
     return res
 
 
-def cargar_capas():
+def cargar_capas(bgf=None, snap_destello=False):
+    """Los 40 pasos en capas. Con bgf se cambia el fondo (por defecto, el escenario del sprite)."""
     nat, _, _ = hz.recuperar()
     spr, bg, bg_peq = hz.capas_base(nat)
-    return pasos(spr, bg, bg_peq, cargar_viejo())
+    if bgf is None:
+        bgf = lambda t: (bg, bg_peq)
+    SNAP_DESTELLO[0] = snap_destello
+    try:
+        return pasos(spr, bgf, cargar_viejo())
+    finally:
+        SNAP_DESTELLO[0] = False
 
 
 def main():
