@@ -79,13 +79,11 @@ def kmeans(lab, init, it=20):
     return d.argmin(1), cen
 
 
-REGION_PUNTA = (29, 10, 38, 17)      # (x0, y0, x1, y1) del sprite limpio: la punta del cañón de la pistola
-
-
-def contorno_negro(img, region=REGION_PUNTA):
-    """En la punta de la pistola, el contorno negro en diagonal perdió un píxel: quedó en un gris oscuro neutro (el negro mezclado con el
-    gris del fondo de la imagen). Los píxeles del borde con ese gris, dentro de `region`, se llevan al negro del contorno.
-    Los grises claros (brillos del arma) y los tonos con color no se tocan."""
+def contorno_negro(img, region=None):
+    """El contorno del sprite es negro, pero algunos píxeles del borde quedaron en un gris oscuro neutro (el negro mezclado con el gris del
+    fondo de la imagen, p. ej. en la punta del cañón de la pistola). Los píxeles del borde con ese gris (luminancia < 36 y sin color) se llevan
+    al negro del contorno. Los grises claros (cuerpo y brillos del arma) y los tonos con color (el marrón oscuro del pelo) no se tocan.
+    `region` = (x0, y0, x1, y1) para limitarlo a una zona; None = todo el sprite."""
     a = np.array(img)
     op = a[..., 3] > 0
     H, W = op.shape
@@ -98,7 +96,7 @@ def contorno_negro(img, region=REGION_PUNTA):
             borde = any(not (0 <= y + dy < H and 0 <= x + dx < W and op[y + dy, x + dx]) for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
             c = a[y, x, :3].astype(int)
             lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
-            en_region = region[0] <= x < region[2] and region[1] <= y < region[3]
+            en_region = region is None or (region[0] <= x < region[2] and region[1] <= y < region[3])
             if en_region and borde and lum < 36 and c.max() - c.min() <= 6 and tuple(c) != tuple(negro):
                 a[y, x, :3] = negro
                 cambios.append((x, y, tuple(int(v) for v in c)))
