@@ -15,13 +15,19 @@ OUT = HERE / "opciones_tamano"
 VW, WX, FLOOR_WIN, CXN, FLOORN = 320, 92, 306, 175, 300     # ventana, esquina, suelo dentro de la ventana, centro y suelo nativos
 NH = 314                                                    # alto nativo (suelo + 14 px)
 TIEMPO = 50
+NATIVO_SPRITE = []
 
 
 def nativo():
     b.W, b.H, b.CX, b.SUELO = 380, 330, CXN, FLOORN
     e.X0, e.W, e.H, e.SUELO = 1500, 380, NH, FLOORN
     R = b.cargar()
-    capas = [c.crop((0, 0, 380, NH)) for c in b.dibujar_ticks_bucle1(b.guion_bucle1(R), R)]
+    ticks = b.guion_bucle1(R)
+    capas = [c.crop((0, 0, 380, NH)) for c in b.dibujar_ticks_bucle1(ticks, R)]
+    # solo Drache (sin polvo, pepitas ni bola de fuego): es lo único que puede salir por delante del marco
+    solo = [dict(t, fase="vic") for t in ticks]
+    for t in solo: t.pop("polvo", None); t.pop("pepitas", None)
+    NATIVO_SPRITE[:] = [c.crop((0, 0, 380, NH)) for c in b.dibujar_ticks_bucle1(solo, R)]
     bg = Image.fromarray(e.agrupar(np.asarray(e.con_sombra(e.fondo_rgb())), e.K_FONDO)).convert("RGBA")
     return bg, capas
 
@@ -50,9 +56,9 @@ def aplicar(lz, m):
     return Image.fromarray(a, "RGBA")
 
 
-def componer(f4, fondo, lz, dentro, sobre):
+def componer(f4, fondo, lz, dentro, sobre, lz_sprite=None):
     c = Image.new("RGBA", f4.size, (0, 0, 0, 255)); c.paste(fondo, (WX, WX))
-    c.alpha_composite(aplicar(lz, dentro)); c.alpha_composite(f4); c.alpha_composite(aplicar(lz, sobre))
+    c.alpha_composite(aplicar(lz, dentro)); c.alpha_composite(f4); c.alpha_composite(aplicar(lz if lz_sprite is None else lz_sprite, sobre))
     return c.convert("RGB")
 
 
