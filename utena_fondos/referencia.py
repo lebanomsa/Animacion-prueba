@@ -72,30 +72,32 @@ def estrella_fugaz(img, hx, hy, dx, dy, largo=11, ancho=True):
         px(img, hx + ox, hy + oy, COLA[2])
 
 
-def cometa(img, hx, hy, dx, dy, largo=24):
+def cometa(img, hx, hy, dx, dy, largo=24, cola=None, ion=None):
     """Cometa grande: cabeza de 3x3 con halo, cola de polvo ancha (con tramado) y cola de iones fina y celeste."""
+    cola = COLA if cola is None else cola
+    ion = ION if ion is None else ion
     n = np.hypot(dx, dy); ux, uy = dx / n, dy / n
     px_, py_ = -uy, ux
     for i in range(largo, 0, -1):
-        k = int(i * len(COLA) / (largo + 1))
+        k = int(i * len(cola) / (largo + 1))
         w = 1 + int(i * 3.2 / largo)
         for s in range(-w, w + 1):
             cx, cy = hx - ux * i + px_ * s * 0.9, hy - uy * i + py_ * s * 0.9
             borde = abs(s) / (w + 0.5)
             if borde < 0.45 or BAYER[int(round(cy)) % 4, int(round(cx)) % 4] > borde * 0.9:
-                px(img, cx, cy, COLA[min(k + (1 if abs(s) > 1 else 0), len(COLA) - 1)])
+                px(img, cx, cy, cola[min(k + (1 if abs(s) > 1 else 0), len(cola) - 1)])
     ang = 0.22                                             # la cola de iones sale un poco girada
     ca, sa = np.cos(ang), np.sin(ang)
     vx, vy = ux * ca - uy * sa, ux * sa + uy * ca
     for i in range(2, largo + 6):
-        k = int(i * len(ION) / (largo + 7))
-        px(img, hx - vx * i, hy - vy * i, ION[min(k, len(ION) - 1)])
+        k = int(i * len(ion) / (largo + 7))
+        px(img, hx - vx * i, hy - vy * i, ion[min(k, len(ion) - 1)])
     for ox in (-1, 0, 1):
         for oy in (-1, 0, 1):
             px(img, hx + ox, hy + oy, BLANCO)
     px(img, hx, hy, (255, 255, 255))
     for ox, oy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
-        px(img, hx + ox, hy + oy, COLA[2])
+        px(img, hx + ox, hy + oy, cola[2])
 
 
 # ------------------------------------------------------------------------------------------ opciones de cometa
