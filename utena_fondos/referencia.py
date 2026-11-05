@@ -52,7 +52,7 @@ def indice(t):
 
 def px(img, x, y, c):
     x, y = int(round(x)), int(round(y))
-    if 0 <= x < NC and 0 <= y < NC:
+    if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
         img[y, x] = c
 
 

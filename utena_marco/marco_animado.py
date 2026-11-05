@@ -177,8 +177,9 @@ def construir_marco(opcion, K=150):
 
 
 # ---------------------------------------------------------------- composición con la animación de Utena
-def escena(caps, marcos, t):
-    up = lambda a: np.repeat(np.repeat(a, 2, axis=0), 2, axis=1)
+def escena(caps, marcos, t, esc=2):
+    """Marco + animación en un lienzo de 126x126. esc=2: la escena es de 63x63 y se amplía 2x; esc=1: la escena ya es de 126x126."""
+    up = (lambda a: np.repeat(np.repeat(a, 2, axis=0), 2, axis=1)) if esc == 2 else (lambda a: a)
     out = Image.fromarray(up(caps[t].under), "RGB").convert("RGBA")
     out.alpha_composite(marcos[t].crop((1, 1, 127, 127)))
     out.alpha_composite(Image.fromarray(up(caps[t].over), "RGBA"))

@@ -56,6 +56,7 @@ def capa_viejo(old, resp, ant, brillo):
         o2[8:23, 27:] = sub
     lay = np.zeros((NC, NC, 4), np.uint8)
     ox, oy = VIEJO_ORIGEN
+    ox, oy = ox + hz.SHIFT[0], oy + hz.SHIFT[1]
     lay[oy:oy + o2.shape[0], ox:ox + o2.shape[1]] = o2
     return lay
 
@@ -192,6 +193,26 @@ def pasos(spr, bgf, old):
             c = componer(bg, mezclar(SIL_V, viejo(35), 0.5), 6)
         res.append(c)
     return res
+
+
+def cargar_capas_1x(bgf, snap_destello=(0, 38), lienzo=126, desplazamiento=(31, 31)):
+    """Los 40 pasos en un lienzo de `lienzo`x`lienzo` píxeles con la escena (63x63) puesta en `desplazamiento`: Utena a tamaño natural (1x)
+    y los efectos completos, sin recortar. bgf(t) debe devolver (fondo, fondo) de `lienzo`x`lienzo`."""
+    global NC, NZ
+    nat, _, _ = hz.recuperar()
+    spr, _, _ = hz.capas_base(nat)                          # el sprite (el escenario original no se usa)
+    viejo = cargar_viejo()
+    guardado = (NC, hz.NC, NZ, tuple(hz.SHIFT), SNAP_DESTELLO[0])
+    NC = hz.NC = lienzo
+    hz.SHIFT[:] = list(desplazamiento)
+    NZ = np.random.RandomState(5).rand(lienzo, lienzo)
+    SNAP_DESTELLO[0] = snap_destello
+    try:
+        return pasos(spr, bgf, viejo)
+    finally:
+        NC, hz.NC, NZ = guardado[0], guardado[1], guardado[2]
+        hz.SHIFT[:] = list(guardado[3])
+        SNAP_DESTELLO[0] = guardado[4]
 
 
 def cargar_capas(bgf=None, snap_destello=None):

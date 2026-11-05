@@ -111,14 +111,18 @@ def transformar(spr, resp, ant, f, h):
     if h:                                                 # levitar
         o4 = np.zeros_like(o3); o4[:-h] = o3[h:]; o3 = o4
     lay = np.zeros((NC, NC, 4), np.uint8)
-    lay[0:NC, OFX:OFX + 52] = o3[5:68, 0:52]
+    sx, sy = SHIFT
+    lay[sy:sy + 63, OFX + sx:OFX + sx + 52] = o3[5:68, 0:52]
     return lay
 
 
 # ---------------------------------------------------------------- efectos
+SHIFT = [0, 0]      # desplazamiento de toda la escena dentro de un lienzo más grande (modo 'tamaño natural')
+
+
 def px(img, x, y, col):
-    x, y = int(round(x)), int(round(y))
-    if 0 <= x < NC and 0 <= y < NC:
+    x, y = int(round(x)) + SHIFT[0], int(round(y)) + SHIFT[1]
+    if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
         img[y, x] = tuple(col) + (255,) if img.shape[2] == 4 else tuple(col)
 
 
@@ -159,7 +163,7 @@ def frame(t, spr, bg, bg_peq, capas=False):
     base = (bg_peq if hover >= 2 else bg).astype(int)
     if flash:
         base = np.clip(base + 38, 0, 255)
-    img = np.dstack([base.astype(np.uint8), np.full((NC, NC), 255, np.uint8)])
+    img = np.dstack([base.astype(np.uint8), np.full(base.shape[:2], 255, np.uint8)])
 
     # círculo mágico en el suelo (detrás de los pies)
     ccx, ccy = 32, 51
