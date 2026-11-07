@@ -118,13 +118,13 @@ def render2(r):
 
 def guion3(r):
     """(imagen de Nova, es celda de Timor, índice de cápsula) por paso: 32 pasos."""
-    dur = [4, 2, 2, 1, 2, 1, 2, 4, 2, 2, 1, 1, 2, 2, 2]     # + 2 pasos de cierre con la postura inicial de idle
-    assert sum(dur) + 2 == 32, sum(dur)
+    dur = [6, 3, 3, 2, 3, 2, 3, 6, 3, 3, 2, 2, 2, 2, 3]     # + 3 pasos de cierre con la postura inicial de idle = 48 (tres vueltas del bucle de Vita)
+    assert sum(dur) + 3 == 48, sum(dur)
     P = []
     for k, d in enumerate(dur):
         for _ in range(d):
             P.append((r.timor[k], True, 14 + len(P) % 16))
-    for _ in range(2):
+    for _ in range(3):
         P.append((r.idle[0], False, 14 + len(P) % 16))
     return P
 

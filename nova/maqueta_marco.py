@@ -15,15 +15,19 @@ VX, VY, VN = 23, 23, 80          # ventana en la rejilla de 126 (el marco de 128
 DX, DY = -13, -28                # escena -> ventana (capsula+Nova centradas, suelo a 3 px del borde de abajo)
 
 
-def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False):
+def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=None, dy=None, marco_im=None, marco_fn=None):
     b.FONDO = b.SUELO_COL = (0, 0, 0, 0)
     b.NOVA_X = nova_x
     r = b.cargar()
-    fr, win = marco.build()
-    marco_im = fr.crop((1, 1, 127, 127))
+    global DY
+    if dy is not None: DY = dy
+    if marco_im is None and marco_fn is None:
+        fr, win = marco.build()
+        marco_im = fr.crop((1, 1, 127, 127))
     pasos = b.guion3(r)
     ims = []
-    for n, tm, c in pasos:
+    for t, (n, tm, c) in enumerate(pasos):
+        if callable(marco_fn): marco_im = marco_fn(t)
         cap_l = b.escena(None, r.cap[c])
         nova_l = b.escena(n, None, timor=tm)
         # mover de la escena (176x112) a la rejilla de 126: la posición (sx, sy) de la escena cae en (sx + DX + VX, sy + DY + VY)
@@ -35,7 +39,7 @@ def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False):
         dentro = np.zeros((126, 126), bool); dentro[VY:VY + VN, VX:VX + VN] = True
         def recortar(g, m):
             a = np.array(g); a[~m] = 0; return Image.fromarray(a, "RGBA")
-        base = Image.new("RGBA", (126, 126), (0, 0, 0, 255)); base.paste(Image.new("RGBA", (VN, VN), ventana_color), (VX, VY))
+        base = Image.new("RGBA", (126, 126), (0, 0, 0, 255)); base.paste(Image.new("RGBA", (VN, VN), ventana_color) if fondo is None else fondo, (VX, VY))
         base.alpha_composite(recortar(cap_g, dentro)); base.alpha_composite(recortar(nova_g, dentro))
         base.alpha_composite(marco_im)
         base.alpha_composite(recortar(cap_g, ~dentro))      # el sombrero de la cápsula asoma por delante del marco
