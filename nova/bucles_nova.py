@@ -116,16 +116,25 @@ def render2(r):
     return fr
 
 
-def guion3(r):
-    """(imagen de Nova, es celda de Timor, índice de cápsula) por paso: 32 pasos."""
-    dur = [6, 3, 3, 2, 3, 2, 3, 6, 3, 3, 2, 2, 2, 2, 3]     # + 3 pasos de cierre con la postura inicial de idle = 48 (tres vueltas del bucle de Vita)
-    assert sum(dur) + 3 == 48, sum(dur)
+def guion3(r, rapido=True):
+    """(imagen de Nova, es celda de Timor, índice de cápsula) por paso.
+    rapido=True: 32 pasos; Nova cambia de fotograma a cada paso (como Vita), con pausas solo en la preparación y en el rayo.
+      0-3 idle (poses 4..7) | 4-12 preparación | 13-23 rayo | 24-27 recuperación | 28-31 idle (poses 0..3) -> el idle enlaza con el inicio.
+    rapido=False: la versión lenta anterior (48 pasos)."""
     P = []
+    if not rapido:
+        dur = [6, 3, 3, 2, 3, 2, 3, 6, 3, 3, 2, 2, 2, 2, 3]
+        for k, d in enumerate(dur):
+            for _ in range(d): P.append((r.timor[k], True, 14 + len(P) % 16))
+        for _ in range(3): P.append((r.idle[0], False, 14 + len(P) % 16))
+        return P
+    for i in (4, 5, 6, 7): P.append((r.idle[i], False, 14 + len(P) % 16))
+    dur = [2, 1, 1, 1, 1, 1, 2, 5, 3, 2, 1, 1, 1, 1, 1]
+    assert sum(dur) == 24
     for k, d in enumerate(dur):
-        for _ in range(d):
-            P.append((r.timor[k], True, 14 + len(P) % 16))
-    for _ in range(3):
-        P.append((r.idle[0], False, 14 + len(P) % 16))
+        for _ in range(d): P.append((r.timor[k], True, 14 + len(P) % 16))
+    for i in (0, 1, 2, 3): P.append((r.idle[i], False, 14 + len(P) % 16))
+    assert len(P) == 32, len(P)
     return P
 
 

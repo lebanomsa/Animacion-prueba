@@ -1,6 +1,6 @@
 """Marcos de Nova: el marco de siempre (secuencia/marco.py) con tres paletas y detalles estáticos y animados.
-Coordenadas nativas de 128x128 (ventana 24..103; banda exterior de 4 px: filas/columnas 1..4 y 123..126). 48 pasos de 80 ms:
-el disparo del rayo dura los pasos 22..35 y la carga 15..21; las luces del marco reaccionan a eso.
+Coordenadas nativas de 128x128 (ventana 24..103; banda exterior de 4 px: filas/columnas 1..4 y 123..126). 32 pasos de 80 ms:
+el disparo del rayo dura los pasos 13..23 y la carga 5..12 (de 32); las luces del marco reaccionan a eso.
 
   acero   : acero azulado arriba, óxido/cobre abajo (hace juego con el fondo naranja y las máquinas grises)
   militar : verde oliva (su chaqueta) arriba, latón abajo
@@ -23,7 +23,7 @@ PALETAS = {
     "vita": ([(0.0, (2, 12, 12)), (0.3, (10, 40, 38)), (0.6, (34, 92, 84)), (0.85, (100, 162, 148)), (1.0, (204, 236, 224))],
              [(0.0, (26, 8, 18)), (0.3, (88, 34, 64)), (0.6, (170, 86, 126)), (0.85, (228, 148, 176)), (1.0, (255, 214, 226))]),
 }
-PASOS, CARGA, DISPARO = 48, range(15, 22), range(22, 36)
+PASOS, CARGA, DISPARO = 32, range(5, 13), range(13, 24)
 
 
 class Pincel:
