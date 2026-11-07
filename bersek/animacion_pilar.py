@@ -79,12 +79,13 @@ def guion(r, variante):
     return P
 
 
-def render(variante, x0=1650):
+def render(variante, x0=1650, marco_fn=None):
     r = bb.cargar()
     mundo = fondo_mundo(x0)
     marco_im = marco_126()
     frames = []
-    for p in guion(r, variante):
+    for t, p in enumerate(guion(r, variante)):
+        if marco_fn is not None: marco_im = marco_fn(t)
         cam = int(round(SEGUIR * p["h"]))
         top = FLOOR_STAGE - FLOOR_WIN - cam
         ventana = Image.fromarray(mundo[top:top + VN]).convert("RGBA")
