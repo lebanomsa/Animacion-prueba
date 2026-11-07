@@ -116,12 +116,23 @@ def render2(r):
     return fr
 
 
-def guion3(r, rapido=True):
+def guion3(r, rapido=True, modo=None):
     """(imagen de Nova, es celda de Timor, índice de cápsula) por paso.
     rapido=True: 32 pasos; Nova cambia de fotograma a cada paso (como Vita), con pausas solo en la preparación y en el rayo.
       0-3 idle (poses 4..7) | 4-12 preparación | 13-23 rayo | 24-27 recuperación | 28-31 idle (poses 0..3) -> el idle enlaza con el inicio.
     rapido=False: la versión lenta anterior (48 pasos)."""
     P = []
+    if modo == "fluido48":
+        # 48 pasos. Los extremos del bucle quedan en la postura lista (poses 4..7 de idle: balanceo suave, 7 -> 4 enlaza solo);
+        # el gesto del movimiento de espera (agacharse, voltear la oreja, levantar el brazo: poses 1..3) se hace en medio, antes del disparo.
+        for i in (4, 5, 6, 7): P.append((r.idle[i], False, 14 + len(P) % 16))
+        for i in range(8): P.append((r.idle[i], False, 14 + len(P) % 16))
+        dur = [4, 1, 2, 1, 2, 1, 2, 6, 3, 3, 2, 1, 1, 1, 2]
+        for k, d in enumerate(dur):
+            for _ in range(d): P.append((r.timor[k], True, 14 + len(P) % 16))
+        for i in (4, 5, 6, 7): P.append((r.idle[i], False, 14 + len(P) % 16))
+        assert len(P) == 48, len(P)
+        return P
     if not rapido:
         dur = [6, 3, 3, 2, 3, 2, 3, 6, 3, 3, 2, 2, 2, 2, 3]
         for k, d in enumerate(dur):
@@ -138,8 +149,8 @@ def guion3(r, rapido=True):
     return P
 
 
-def render3(r):
-    return [escena(n, r.cap[c], timor=tm) for n, tm, c in guion3(r)]
+def render3(r, modo=None):
+    return [escena(n, r.cap[c], timor=tm) for n, tm, c in guion3(r, modo=modo)]
 
 
 def guardar(frames, nombre):

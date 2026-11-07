@@ -23,7 +23,14 @@ PALETAS = {
     "vita": ([(0.0, (2, 12, 12)), (0.3, (10, 40, 38)), (0.6, (34, 92, 84)), (0.85, (100, 162, 148)), (1.0, (204, 236, 224))],
              [(0.0, (26, 8, 18)), (0.3, (88, 34, 64)), (0.6, (170, 86, 126)), (0.85, (228, 148, 176)), (1.0, (255, 214, 226))]),
 }
-PASOS, CARGA, DISPARO = 32, range(5, 13), range(13, 24)
+MODOS = {"rapido32": (32, range(5, 13), range(13, 24)), "fluido48": (48, range(16, 25), range(25, 39))}
+PASOS, CARGA, DISPARO = MODOS["rapido32"]
+
+
+def modo(nombre):
+    """Elige la temporización del bucle (pasos totales, pasos de carga y de disparo) que usan las luces animadas del marco."""
+    global PASOS, CARGA, DISPARO
+    PASOS, CARGA, DISPARO = MODOS[nombre]
 
 
 class Pincel:

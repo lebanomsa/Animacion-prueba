@@ -15,7 +15,7 @@ VX, VY, VN = 23, 23, 80          # ventana en la rejilla de 126 (el marco de 128
 DX, DY = -13, -28                # escena -> ventana (capsula+Nova centradas, suelo a 3 px del borde de abajo)
 
 
-def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=None, dy=None, marco_im=None, marco_fn=None):
+def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=None, dy=None, marco_im=None, marco_fn=None, modo=None):
     b.FONDO = b.SUELO_COL = (0, 0, 0, 0)
     b.NOVA_X = nova_x
     r = b.cargar()
@@ -24,7 +24,7 @@ def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=Non
     if marco_im is None and marco_fn is None:
         fr, win = marco.build()
         marco_im = fr.crop((1, 1, 127, 127))
-    pasos = b.guion3(r)
+    pasos = b.guion3(r, modo=modo)
     ims = []
     for t, (n, tm, c) in enumerate(pasos):
         if callable(marco_fn): marco_im = marco_fn(t)
