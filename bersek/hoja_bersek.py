@@ -46,3 +46,23 @@ if __name__ == "__main__":
     for f in filas:
         f.sort(key=lambda c: c[1])
         print("y", f[0][0], "n", len(f), "alto", sorted(set(c[2] for c in f))[:4], "x", f[0][1], "..", f[-1][1] + f[-1][3])
+
+
+def sin_borde(img):
+    a = np.array(img)
+    m = ((a[..., 0] == 255) & (a[..., 1] == 0) & (a[..., 2] == 255)) | ((a[..., 0] == 0) & (a[..., 1] == 255) & (a[..., 2] == 0))
+    a[m & (a[..., 3] == 255)] = 0
+    ys, xs = np.where(a[..., 3] > 0)
+    return Image.fromarray(a[ys.min():ys.max() + 1, xs.min():xs.max() + 1], "RGBA")
+
+
+def fotogramas(y0, y1, x0, x1):
+    return [sin_borde(recorte(c)) for c in region(y0, y1, x0, x1)]
+
+
+def pies(img):
+    """(centro x de las 4 filas más bajas con píxeles opacos, fila inferior)."""
+    a = np.asarray(img)[..., 3] > 0
+    y1 = np.where(a.any(1))[0].max()
+    xs = np.where(a[max(0, y1 - 3):y1 + 1].any(0))[0]
+    return (xs.min() + xs.max() + 1) / 2, y1 + 1
