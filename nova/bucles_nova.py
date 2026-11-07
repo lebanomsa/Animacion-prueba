@@ -116,16 +116,21 @@ def render2(r):
     return fr
 
 
-def render3(r):
+def guion3(r):
+    """(imagen de Nova, es celda de Timor, índice de cápsula) por paso: 32 pasos."""
     dur = [4, 2, 2, 1, 2, 1, 2, 4, 2, 2, 1, 1, 2, 2, 2]     # + 2 pasos de cierre con la postura inicial de idle
     assert sum(dur) + 2 == 32, sum(dur)
-    fr, t = [], 0
+    P = []
     for k, d in enumerate(dur):
         for _ in range(d):
-            fr.append(escena(r.timor[k], r.cap[14 + t % 16], timor=True)); t += 1
+            P.append((r.timor[k], True, 14 + len(P) % 16))
     for _ in range(2):
-        fr.append(escena(r.idle[0], r.cap[14 + t % 16])); t += 1
-    return fr
+        P.append((r.idle[0], False, 14 + len(P) % 16))
+    return P
+
+
+def render3(r):
+    return [escena(n, r.cap[c], timor=tm) for n, tm, c in guion3(r)]
 
 
 def guardar(frames, nombre):
