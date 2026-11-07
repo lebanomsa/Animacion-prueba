@@ -15,7 +15,7 @@ VX, VY, VN = 23, 23, 80          # ventana en la rejilla de 126 (el marco de 128
 DX, DY = -13, -28                # escena -> ventana (capsula+Nova centradas, suelo a 3 px del borde de abajo)
 
 
-def main(nova_x=72, ventana_color=(32, 34, 44, 255)):
+def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False):
     b.FONDO = b.SUELO_COL = (0, 0, 0, 0)
     b.NOVA_X = nova_x
     r = b.cargar()
@@ -39,14 +39,18 @@ def main(nova_x=72, ventana_color=(32, 34, 44, 255)):
         base.alpha_composite(recortar(cap_g, dentro)); base.alpha_composite(recortar(nova_g, dentro))
         base.alpha_composite(marco_im)
         base.alpha_composite(recortar(cap_g, ~dentro))      # el sombrero de la cápsula asoma por delante del marco
+        if rayo_fuera:                                        # el rayo (y la esfera) atraviesan la banda derecha del marco
+            franja = np.zeros((126, 126), bool); franja[VY + 10:VY + 62, VX + VN:] = True
+            base.alpha_composite(recortar(nova_g, franja))
         ims.append(base.convert("RGB").resize((504, 504), Image.NEAREST))
     return ims
 
 
 if __name__ == "__main__":
-    ims = main()
-    idx = [0, 5, 9, 13, 17, 25]
-    s = Image.new("RGB", (504 * 3 + 20, 504 * 2 + 10), (30, 30, 30))
-    for j, i in enumerate(idx):
-        s.paste(ims[i], ((j % 3) * 514, (j // 3) * 514))
-    s.save(OUT / "maqueta_marco_bucle3.png"); print("ok", s.size)
+    idx = [14, 17, 19, 22]
+    for nombre, kw in {"A_rayo_cruza_el_marco": dict(rayo_fuera=True), "B_rayo_cruza_y_Nova_mas_a_la_izquierda": dict(rayo_fuera=True, nova_x=58)}.items():
+        ims = main(**kw)
+        s = Image.new("RGB", (504 * 2 + 10, 504 * 2 + 10), (30, 30, 30))
+        for j, i in enumerate(idx):
+            s.paste(ims[i], ((j % 2) * 514, (j // 2) * 514))
+        s.save(OUT / f"opcion_rayo_{nombre}.png"); print(nombre, s.size)
