@@ -15,7 +15,7 @@ VX, VY, VN = 23, 23, 80          # ventana en la rejilla de 126 (el marco de 128
 DX, DY = -13, -28                # escena -> ventana (capsula+Nova centradas, suelo a 3 px del borde de abajo)
 
 
-def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=None, dy=None, marco_im=None, marco_fn=None, modo=None):
+def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=None, dy=None, marco_im=None, marco_fn=None, modo=None, piezas=None):
     b.FONDO = b.SUELO_COL = (0, 0, 0, 0)
     b.NOVA_X = nova_x
     r = b.cargar()
@@ -46,6 +46,13 @@ def main(nova_x=72, ventana_color=(32, 34, 44, 255), rayo_fuera=False, fondo=Non
         if rayo_fuera:                                        # el rayo (y la esfera) atraviesan la banda derecha del marco
             franja = np.zeros((126, 126), bool); franja[VY + 10:VY + 62, VX + VN:] = True
             base.alpha_composite(recortar(nova_g, franja))
+        if piezas is not None:
+            # capa de abajo (fondo + marco) y capa de arriba (cápsula + Nova + efectos, con transparencia parcial en el cristal)
+            fm = Image.new("RGBA", (126, 126), (0, 0, 0, 255)); fm.paste(Image.new("RGBA", (VN, VN), ventana_color) if fondo is None else fondo, (VX, VY)); fm.alpha_composite(marco_im)
+            sup = Image.new("RGBA", (126, 126), (0, 0, 0, 0)); sup.alpha_composite(cap_g)
+            permitido = dentro | (franja if rayo_fuera else np.zeros((126, 126), bool))
+            sup.alpha_composite(recortar(nova_g, permitido))
+            piezas.append(dict(final=base.convert("RGB"), fondo_marco=fm, sup=sup))
         ims.append(base.convert("RGB").resize((504, 504), Image.NEAREST))
     return ims
 
