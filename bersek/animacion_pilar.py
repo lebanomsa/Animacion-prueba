@@ -79,12 +79,36 @@ def guion(r, variante):
     return P
 
 
-def render(variante, x0=1650, marco_fn=None):
+def alinear(P):
+    """Desplazamiento horizontal (px) de cada fotograma de Bersek para que no 'baile' de lado a lado: en vez de anclar solo por el centro de los pies
+    (que salta de golpe cuando cambia la postura o arrastra el cañón), cada fotograma se coloca donde más se solapa su silueta con la del anterior."""
+    dxs, prev = [], None
+    for t, p in enumerate(P):
+        a = np.asarray(p["bers"])[..., 3] > 0
+        cx, _ = bb.hb.pies(p["bers"])
+        h_, w_ = a.shape
+        mejor, mejor_s = 0, -1
+        suelo_ = np.zeros((200, 260), bool)
+        for d in (range(-12, 13) if prev is not None else [0]):
+            if prev is not None and (p["h"] > 0 or P[t - 1]["h"] > 0) and abs(d) > 4: continue
+            lienzo = np.zeros((200, 260), bool)
+            left = int(round(p["x"] - cx)) + d + 100
+            top = 150 - int(round(p["h"])) - h_
+            lienzo[top:top + h_, left:left + w_] |= a
+            sc = 0.0 if prev is None else (lienzo & prev).sum() / max(1, (lienzo | prev).sum()) - 0.003 * abs(d)
+            if sc > mejor_s: mejor_s, mejor, mejor_c = sc, d, lienzo
+        dxs.append(mejor); prev = mejor_c
+    return dxs
+
+
+def render(variante, x0=1650, marco_fn=None, alineado=True):
     r = bb.cargar()
     mundo = fondo_mundo(x0)
     marco_im = marco_126()
     frames = []
-    for t, p in enumerate(guion(r, variante)):
+    G = guion(r, variante)
+    dxs = alinear(G) if alineado else [0] * len(G)
+    for t, p in enumerate(G):
         if marco_fn is not None: marco_im = marco_fn(t)
         cam = int(round(SEGUIR * p["h"]))
         top = FLOOR_STAGE - FLOOR_WIN - cam
@@ -96,7 +120,7 @@ def render(variante, x0=1650, marco_fn=None):
             pil = r.pilar[p["pilar"]]
             pegar(c, pil, xl - pil.width / 2, suelo + 2 - pil.height)
         cx, by = bb.hb.pies(p["bers"])
-        pegar(c, p["bers"], VX + p["x"] - cx, suelo - p["h"] - by)
+        pegar(c, p["bers"], VX + p["x"] - cx + dxs[t], suelo - p["h"] - by)
         if p["pilar"] is not None:                       # llamas de la base por delante de los pies
             pil = r.pilar[p["pilar"]]
             fr = pil.crop((0, max(0, pil.height - 7), pil.width, pil.height))
