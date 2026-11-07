@@ -122,6 +122,12 @@ def guion3(r, rapido=True, modo=None):
       0-3 idle (poses 4..7) | 4-12 preparación | 13-23 rayo | 24-27 recuperación | 28-31 idle (poses 0..3) -> el idle enlaza con el inicio.
     rapido=False: la versión lenta anterior (48 pasos)."""
     P = []
+    if modo == "continuo46":
+        # Igual que continuo48 sin sus dos últimos pasos (la pose de reposo repetida al final). Para que Vita siga cerrando su bucle sin salto,
+        # se saltan dos fotogramas de su ciclo (pasos 11 y 27 de la secuencia de 48): ella termina en el último fotograma y vuelve al primero.
+        P48 = guion3(r, modo="continuo48")
+        cap = [14 + t % 16 for t in range(48) if t not in (11, 27)]
+        return [(n, tm, cap[i]) for i, (n, tm, _) in enumerate(P48[:46])]
     if modo == "continuo48":
         # 48 pasos. Espera tranquila (poses 0,4..7) -> preparación y disparo (Timor 0..10) -> recuperación 11..13, que enlaza con las poses 1..3 de idle
         # (agacharse, girar, levantar el brazo: en la hoja son la continuación natural del final de Timor) -> reposo (poses 4..7, 0, 4, 5) -> inicio
