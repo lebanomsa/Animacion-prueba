@@ -122,6 +122,17 @@ def guion3(r, rapido=True, modo=None):
       0-3 idle (poses 4..7) | 4-12 preparación | 13-23 rayo | 24-27 recuperación | 28-31 idle (poses 0..3) -> el idle enlaza con el inicio.
     rapido=False: la versión lenta anterior (48 pasos)."""
     P = []
+    if modo == "continuo48":
+        # 48 pasos. Espera tranquila (poses 0,4..7) -> preparación y disparo (Timor 0..10) -> recuperación 11..13, que enlaza con las poses 1..3 de idle
+        # (agacharse, girar, levantar el brazo: en la hoja son la continuación natural del final de Timor) -> reposo (poses 4..7, 0, 4, 5) -> inicio
+        for i in (0, 4, 6, 7, 4, 6, 7, 5): P.append((r.idle[i], False, 14 + len(P) % 16))     # termina en la pose 5, la más parecida a Timor 0
+        dur = [3, 1, 2, 1, 2, 1, 2, 6, 3, 3, 2, 1, 1, 1]          # Timor 0..13
+        for k, d in enumerate(dur):
+            for _ in range(d): P.append((r.timor[k], True, 14 + len(P) % 16))
+        for i, d in ((1, 1), (2, 1), (3, 2), (4, 1), (5, 1), (6, 1), (7, 1), (0, 1), (4, 1), (5, 1)):
+            for _ in range(d): P.append((r.idle[i], False, 14 + len(P) % 16))
+        assert len(P) == 48, len(P)
+        return P
     if modo == "fluido48":
         # 48 pasos. Los extremos del bucle quedan en la postura lista (poses 4..7 de idle: balanceo suave, 7 -> 4 enlaza solo);
         # el gesto del movimiento de espera (agacharse, voltear la oreja, levantar el brazo: poses 1..3) se hace en medio, antes del disparo.
