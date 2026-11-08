@@ -121,7 +121,9 @@ def alinear(P):
     return dxs
 
 
-def render(variante, x0=1650, marco_fn=None, alineado=True):
+def render(variante, x0=1650, marco_fn=None, alineado=True, piezas=None):
+    """Lista de fotogramas RGB de 126x126. Si se pasa `piezas` (lista), se añade por paso un dict con la capa de abajo (fondo + marco, RGBA opaca)
+    y la capa de arriba (pilar + Bersek + llamas de la base, RGBA con alfa 0/255)."""
     r = bb.cargar()
     mundo = fondo_mundo(x0)
     marco_im = marco_126()
@@ -134,18 +136,22 @@ def render(variante, x0=1650, marco_fn=None, alineado=True):
         top = FLOOR_STAGE - FLOOR_WIN - cam
         ventana = Image.fromarray(mundo[top:top + VN]).convert("RGBA")
         c = Image.new("RGBA", (126, 126), (0, 0, 0, 255)); c.paste(ventana, (VX, VY)); c.alpha_composite(marco_im)
+        inf = c.copy()
+        sup = Image.new("RGBA", (126, 126), (0, 0, 0, 0))
+        dibujar = lambda im, x, y: (pegar(c, im, x, y), pegar(sup, im, x, y))
         suelo = VY + FLOOR_WIN + cam                     # fila del suelo (en la rejilla) con esta cámara
         xl = VX + (40 if variante == "vertical" else 48)
         if p["pilar"] is not None:
             pil = r.pilar[p["pilar"]]
-            pegar(c, pil, xl - pil.width / 2, suelo + 2 - pil.height)
+            dibujar(pil, xl - pil.width / 2, suelo + 2 - pil.height)
         cx, by = bb.hb.pies(p["bers"])
-        pegar(c, p["bers"], VX + p["x"] - cx + dxs[t], suelo - p["h"] - by)
+        dibujar(p["bers"], VX + p["x"] - cx + dxs[t], suelo - p["h"] - by)
         if p["pilar"] is not None:                       # llamas de la base por delante de los pies
             pil = r.pilar[p["pilar"]]
             fr = pil.crop((0, max(0, pil.height - 7), pil.width, pil.height))
-            pegar(c, fr, xl - pil.width / 2, suelo + 2 - fr.height)
+            dibujar(fr, xl - pil.width / 2, suelo + 2 - fr.height)
         frames.append(c.convert("RGB"))
+        if piezas is not None: piezas.append(dict(inf=inf, sup=sup))
     return frames
 
 
