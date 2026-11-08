@@ -76,6 +76,18 @@ def guion(r, variante):
         P[t]["pilar"] = PILAR[k]
     for t in range(t0 + 4, len(P)):
         P[t]["bers"] = r.idle[(t - t0 - 4) % 8]
+    if variante in ("bola", "salto_atras"):
+        # cierre del bucle: tras quedarse quieto, vuelve al punto de partida (pose lista, agachado, 6 pasos hacia atrás con el giro al revés, pose lista/aterrizaje)
+        for t in range(t0 + 4, len(P)):
+            P[t]["bers"] = r.idle[(t - t0 - 4 + 4) % 8]
+        n = len(P)
+        P[n - 9]["bers"] = r.contra[16]; P[n - 8]["bers"] = r.contra[1]
+        for k, i in enumerate([5, 4, 3, 2, 5, 4]):
+            t = n - 7 + k
+            P[t]["bers"] = r.contra[i]; P[t]["x"] = xl - 20 * (k + 1) / 6; P[t]["mov"] = True
+            if variante == "salto_atras":
+                sk = (k + 0.5) / 6; P[t]["h"] = 4 * 22 * sk * (1 - sk)
+        P[n - 1]["bers"] = r.contra[16 if variante == "bola" else 27]; P[n - 1]["x"] = xl - 20; P[n - 1]["mov"] = True
     if variante == "retroceso":
         # el reposo se reparte para llegar a la pose 7 justo antes del paso atrás; los 6 últimos pasos son los de "moving" al revés (7..2) retrocediendo los 20 px
         for t in range(t0 + 4, len(P)):
@@ -140,7 +152,7 @@ def render(variante, x0=1650, marco_fn=None, alineado=True):
 def main():
     OUT.mkdir(exist_ok=True)
     x0 = int(sys.argv[1]) if len(sys.argv) > 1 else 1650
-    for v in ("vertical", "avance", "retroceso"):
+    for v in ("vertical", "avance", "retroceso", "bola", "salto_atras"):
         fr = render(v, x0)
         n = max(len(np.unique(np.asarray(f).reshape(-1, 3), axis=0)) for f in fr)
         ag = bb.gif_local([f.resize((504, 504), Image.NEAREST) for f in fr], OUT / f"bersek_pilar_{v}_x4.gif", TICK)
